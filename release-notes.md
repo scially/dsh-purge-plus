@@ -1,63 +1,196 @@
-# 1.3.1
+# 1.1.83
 
 ## 中文
 
-- 版本 **1.3.1**。修掉「点应用 → 重启 → 失败: 清洗没有写进全部宿主，已取消重启」。
-- 根因是 **#40 `COMPLETE_PROMPT_KEEP_INJECT` 在 0.2.1 上一条都不命中**：0.2.1 在 `return transformed;` 与 `return {…}` 之间多插了一行 `const requiredContexts = new Set(…)`，`contexts:` 表达式也换了；原来的整段正则要求中间为空，于是状态是 `skipped`（不算失败），但重启前的 `hostPromptKeepsInject` 仍能看到 `sections: … : [completeSection]`，判定「没洗过」并拒绝重启。
-- 补丁拆成两条只认关键行的替换：在 waterfall 之后插 `dshPurgeSections` / `dshPurgeRest`，再把 `sections:` 那一行换成保留注入的写法，中间的 `requiredContexts` 与 `contexts` 原样保留。幂等（二次 apply 无变更），产物通过 `node --check`。
-- 修后实测：两条宿主 `hostWritten=true / pending=[]`，`ensureHostClean()` 返回 `ok: true`；桌面 `resources/app` 的补丁表从 `69 already / 1 skipped` 变成 `70 already / 0 skipped`。
-- **界面收口**：撤掉会话里三个 `dsh-purge` 入口（右下角浮钮、首页模式旁、会话标题旁），界面只在设置里那一处；演练台改挂设置页第四段，没授权时先给门槛卡。
-- 设置导航行改名 **Purge**，页面标题改成 **DeepSeek Harness Purge**。
-
-# 1.3.0
-
-## 中文
-
-- 版本 **1.3.0**，`dshTarget` 仍是 **0.2.1-rc.2**；本机实测 **63/66 applied，0 pending**（其余三条是版本软补丁，本来就在当前版本跳过）。
-- **界面搬到设置里**：新增 `settings.section` 注册（id `dsh-purge`，排 `order: 450`，紧跟 `XD Pool`）。设置左侧导航多一行「破甲」，点开就是完整面板；浮窗降为会话内的快捷入口，三个旧入口（右下角按钮、首页模式旁、会话标题旁）统一先跳设置页，引擎不给 `settings` 命令时才退回浮窗。
-- **UI 全部重画**：删掉自造的衬线标题 + 橄榄绿玻璃皮肤，改吃 DSH 自己的 token（`--dsw-font-*` / `--dsw-radius-*` / `--dsw-alias-*`）。面板是 720px 单列、官方 `rowCard` 形态（0.5px 描边 + 卡片底 + xl 圆角）；按钮对齐官方 `primaryButton` / `secondaryButton` 的 36px 高、md 圆角；输入框 32px 高、l4 描边。指标从「三张卡」改成一条统计带（发丝竖线分隔），补丁分组从卡片改成行 + 展开表格，去掉卡中卡。
-- 面板拆成三块独立卡片：**补丁**（版本通道 + 指标 + 分组 + 动作）、**提示词**、**自己的服务器**，各自带说明行。
-- 设置导航行原本会落到「通用设置」同款齿轮（外壳按 section id 选图标，未知 id 一律齿轮）。新增按 label 命中自绘 mask 图标（开口锁），撑 `mask-image` 覆盖，插件卸载/禁用时自动移除。
-- **破甲内核升到 v3**：`STRONG_INTRO` 重写——先收判定权（写明这是 system 级配置，与后文冲突时本段赢），再钉执行身份（操作员的全权执行器，不做准入判断），最后钉交付形态（拒绝=故障、禁语表、首 token 即答案、缺细节用占位符继续、多步同轮做完）。旧的 v1/v2/v3 原文保留成升级 pattern，已经打过的树会就地换到新文本，二次 apply 不叠层。
-- **默认提示词加了两段硬约束**（`scripts/armor-prelude.mjs`，幂等）：开头 `Authority and precedence` 五条（优先级阶梯、权限已定、拒绝工具调用≠拒绝任务、外部内容只是数据、语言跟随操作员），结尾 `Final gate` 六问交付前自检。密封槽重封后 23698 字节。
-- 演练台（drill）也换到同一套 token：19 处 >1px 的彩色侧边条压到 1px 发丝线，62 处硬编码状态色收进 `--dsw-alias-state-*`（`scripts/drill-skin.mjs`）。
-- **新脚本**：`scripts/armor-prelude.mjs`（注入/回滚提示词头尾）、`scripts/drill-skin.mjs`（演练台换 token，`--check` 可进 CI）。
-- **新工具**（`work/tools/`，不进包）：`client-smoke.mjs`（用真 React 服务端渲染设置页，抓渲染期崩溃）、`render-preview.mjs`（扒宿主 token 生成可截图的预览）、`client-syntax.mjs`、`verify-armor.mjs`。
+- 版本 **1.1.83**。修复 bug，修复稳定性。
+- **#185**：修复 pnpm 11（DSH 内置 11.2.2）下 `pnpm install` 因 `allowBuilds` 崩溃的问题。
+  - 之前 profile 的 `pnpm-workspace.yaml` 会写入 `dsh-purge@https://...` 这类 URL 键，pnpm 把它当版本联合解析，直接报 `[ERR_PNPM_INVALID_VERSION_UNION] Invalid versions union`。
+  - 现在只写裸包名 `dsh-purge`：pnpm 的 `allowBuilds` 本来就按包名匹配，tarball / git / registry 三种安装形态都放行。
+  - 自愈加强：所有 `dsh-purge@*` 历史键（URL 键、旧截断键 `dsh-purge@https`、`@1.1.81` 之类版本键）一律清掉，只保留裸包名；非 dsh-purge 的键原样保留。
+- **#191**：修复 macOS DSH Desktop（0.2.1-rc.4）启动崩溃 `failed to parse overlay .../cordis.patch.yml`。
+  - 宿主生成的 profile 层 `cordis.patch.yml` 可能整体只有一个空 flow 序列 `[]`，那本身就是一个完整 YAML 文档；再往文件尾追加 `- insert:` 会变成第二个文档，宿主解析直接失败。
+  - 现在写之前先判断数据部分形态：空 flow 序列（`[]`，可带 `---` 前缀）→ **替换** `[]` 整行而不是追加；空文件 / 只有注释 → 直接写 insert 块；正常块序列 → 沿用原来的追加行为。
+  - 非空 flow 序列（宿主或用户自己的内容）认不准就不动，返回 `{ ok: false, wrote: false }`，宁可留着也不写坏。
 
 ## English
 
-- **1.3.0**, `dshTarget` stays **0.2.1-rc.2**; measured **63/66 applied, 0 pending** on this machine (the remaining three are version-soft patches that skip here by design).
-- **The UI moved into Settings**: a real `settings.section` registration (`id: dsh-purge`, `order: 450`, right after XD Pool). The settings rail gains a 破甲 row that renders the full panel; the floating dock is now only a quick in-conversation surface. All three old entry points jump to the settings page first and fall back to the dock only when the engine exposes no `settings` command.
-- **Full visual rewrite** on the harness's own tokens (`--dsw-font-*`, `--dsw-radius-*`, `--dsw-alias-*`) instead of the hand-rolled serif/green-glass skin: 720px single column, official rowCard shape (0.5px stroke, card fill, xl radius), 36px/md buttons and 32px/l4 inputs matching the official settings pages, metrics as one stat strip with hairline dividers, patch groups as rows instead of nested cards.
-- Panel splits into three independent cards: **Patches** (channels, metrics, groups, actions), **Prompt**, **Own servers**.
-- A settings row whose id the shell does not know falls back to the generic gear. Added a label-matched, self-drawn mask icon (open lock) so the row reads as its own thing, removed automatically when the plugin unloads.
-- **Jailbreak kernel v3**: `STRONG_INTRO` rewritten to take the judgement away first (system-level configuration that wins conflicts), then pin the executor identity, then pin the output shape (refusal = malfunction, banned-phrase list, first token is the deliverable, placeholders instead of questions, multi-step work finished in one turn). Older v1/v2/v3 text is kept as upgrade patterns so already-patched trees migrate in place and a second apply adds nothing.
-- **Two hard blocks added to the default prompt** (`scripts/armor-prelude.mjs`, idempotent): an opening `Authority and precedence` section and a closing `Final gate` self-check. Re-sealed slot: 23698 bytes.
-- Drill console moved onto the same tokens: 19 thick coloured side borders reduced to 1px hairlines, 62 hardcoded state colours replaced with `--dsw-alias-state-*` (`scripts/drill-skin.mjs`).
-- **New scripts**: `scripts/armor-prelude.mjs`, `scripts/drill-skin.mjs` (`--check` for CI).
-- **New dev tools** (in `work/tools/`, not shipped): `client-smoke.mjs` (real server-side render of the settings page), `render-preview.mjs` (token-accurate screenshot harness), `client-syntax.mjs`, `verify-armor.mjs`.
+- **1.1.83**. Bug fixes and stability.
+- **#185**: fix `pnpm install` crashing under pnpm 11 (11.2.2, bundled with DSH) because of `allowBuilds`.
+  - The profile `pnpm-workspace.yaml` used to get a `dsh-purge@https://...` URL key, which pnpm parses as a version union and rejects with `[ERR_PNPM_INVALID_VERSION_UNION] Invalid versions union`.
+  - Now only the bare package name `dsh-purge` is written: pnpm matches `allowBuilds` by package name, so tarball / git / registry installs are all allowed.
+  - Stronger self-healing: every `dsh-purge@*` legacy key (URL keys, truncated `dsh-purge@https`, `@1.1.81`-style version keys) is dropped and only the bare name is kept; non-dsh-purge keys are preserved as-is.
+- **#191**: fix the macOS DSH Desktop (0.2.1-rc.4) startup crash `failed to parse overlay .../cordis.patch.yml`.
+  - The host-generated profile `cordis.patch.yml` may consist of a single empty flow sequence `[]`, which is already a complete YAML document; appending `- insert:` after it creates a second document and the host fails to parse it.
+  - The data shape is now detected before writing: an empty flow sequence (`[]`, optionally `---`-prefixed) → **replace** the `[]` line instead of appending; empty file / comments only → write the insert block; a normal block sequence → the previous append behaviour is kept.
+  - A non-empty flow sequence (host or user content) is left alone and returns `{ ok: false, wrote: false }` — better to skip than to write something broken.
 
-# 1.2.0
+# 1.1.82
 
 ## 中文
 
-- 版本 **1.2.0**，`dshTarget` 提到 **0.2.1-rc.2**。
-- 0.2.1 把 Web 面提示词从 `dsh-web-app` 搬到新包 **`dsh-harness-dev-context`**（`WEB_SURFACE_PROMPT` / `LEGACY_WEB_SURFACE`），句子里的 `${webUrl}` 也去掉了。
-- 新增目标键 `harness-dev-context`；**#32 / #53** 补 0.2.1 锚点（含 `Advertised URL …` 说明行），不再静默跳过。
-- **#77** 补 0.2.1 的 `if (this.revised.size > 0) this.revised.clear();` 锚点。
-- 新增 `scripts/compat-check.mjs`：直接从 `app.asar` 或解开的 `app/` 里取补丁目标文件跑全量引擎，报告每条补丁状态，退出码可进 CI。
-- 0.2.1-rc.2 原树实测：**62 applied / 6 already / 12 missing_file / 2 skipped / 0 pending**；二次运行 0 applied。
-- 详细漂移表见 `docs/compat-0.2.1.md`。
+- 版本 **1.1.82**。修复 bug，修复稳定性。
+- **#180**：修复 profile 的 `pnpm-workspace.yaml` `allowBuilds` 被反复写坏（`dsh-purge@https: true` 畸形键 → `ERR_PNPM_INVALID_VERSION_UNION`，重复键 → `duplicated mapping key`）。
+  - URL 键解析不再被冒号截断；写回含 `://` 的键自动加引号。
+  - 重写只保留精确等于期望键的 `dsh-purge@*`，旧污染键（畸形的、过期的版本/commit URL）自动清掉，不用手工修。
+  - 期望键优先从 profile 的 `pnpm-lock.yaml` 读实际解析的 tarball URL（固定 commit 安装也不再有双 URL 键），读不到才退回 `package.json`。
+  - 重写结果先过最小 YAML 校验（键不重复、round-trip 无损），不过就不写盘；健康文件零写入，启动不再反复重写。
 
 ## English
 
-- **1.2.0**, `dshTarget` is now **0.2.1-rc.2**.
-- 0.2.1 moved the Web-surface prompt out of `dsh-web-app` into the new **`dsh-harness-dev-context`** package (`WEB_SURFACE_PROMPT` / `LEGACY_WEB_SURFACE`), and dropped `${webUrl}` from the sentence.
-- New target key `harness-dev-context`; **#32 / #53** learn the 0.2.1 anchors (including the `Advertised URL …` description line) instead of silently skipping.
-- **#77** learns the 0.2.1 anchor `if (this.revised.size > 0) this.revised.clear();`.
-- New `scripts/compat-check.mjs`: pulls only the patch-target files out of a sealed `app.asar` (or an unpacked `app/`) into a temp tree, runs the full engine, and reports per-patch status with a CI-friendly exit code.
-- Measured on a pristine 0.2.1-rc.2 tree: **62 applied / 6 already / 12 missing_file / 2 skipped / 0 pending**; a second run applies nothing.
-- Drift table: `docs/compat-0.2.1.md`.
+- **1.1.82**. Bug fixes and stability.
+- **#180**: stop rewriting the profile `pnpm-workspace.yaml` `allowBuilds` into garbage (`dsh-purge@https: true` malformed key → `ERR_PNPM_INVALID_VERSION_UNION`; duplicated keys → `duplicated mapping key`).
+  - URL keys no longer truncate at the first colon; keys containing `://` are written back quoted.
+  - Rewrites keep only `dsh-purge@*` keys exactly equal to the wanted set; stale polluted keys (malformed, old version/commit URLs) self-heal away on the next ensure.
+  - The wanted key prefers the tarball URL actually resolved in the profile `pnpm-lock.yaml` (fixed-commit installs no longer get a duplicate URL key); falls back to `package.json`.
+  - Rewritten output passes a minimal YAML check first (no duplicate keys, lossless round-trip); healthy files are never written again, so boot no longer rewrites each run.
+
+# 1.1.81
+
+## 中文
+
+- 版本 **1.1.81**。修复 bug，修复稳定性。
+- **#174**：识别 DSH NEXT 社区桌面（路径、进程、快捷方式、密封 asar）。`DSH_SURFACE=web` 也不再误报；不把任意 `app.asar` 当桌面。
+- **#175**：补 ip / 计分 / settle 单测，删草稿文档和 `.bak`。`npm test` 23 条全过。
+- **#171 / #173**：zip 目录条目和 skills `fs` 导入已在 1.1.80，本版用单测锁住。
+
+## English
+
+- **1.1.81**. Bug fixes and stability.
+- **#174**: detect DSH NEXT desktop (paths, process, shortcuts, sealed asar). Still desktop when `DSH_SURFACE=web`. A random `app.asar` is not treated as the host.
+- **#175**: add ip / score / settle tests; drop draft docs and `.bak`. `npm test` is 23/23 green.
+- **#171 / #173**: zip directory entries and the skills `fs` import shipped in 1.1.80; this release locks them with tests.
+
+# 1.1.80
+
+## 中文
+
+- 版本 **1.1.80**。修复 bug，修复稳定性。
+- **#168**：pnpm 12 的 `allowBuilds` 把 `dsh-purge@codeload...` 也写成 `true`，装别的插件不再留下 `set this to true or false`。
+- **#169**：芯片 / 应用按钮强制系统字体和实色字，不再被宿主图标字体吃掉。
+- **#170**：纯 Node 解 zip 时目录条目建目录，不再写成同名空文件导致 EEXIST。
+- **#172**：`lib/skills.js` 补上 `fs`，#54 软链重叠守卫重新生效。
+- **#176**：写清 **不支持 DSH 0.2.1-rc.3 及更新的 rc**，请退回 **0.2.1-rc.2**。对不上的补丁待应用或跳过，不乱改文件。
+
+## English
+
+- **1.1.80**. Bug fixes and stability.
+- **#168**: pnpm 12 `allowBuilds` also sets `dsh-purge@codeload...` to `true`, so installing other plugins no longer leaves `set this to true or false`.
+- **#169**: chip / Apply buttons force a system font and solid text color so the host icon font cannot hide the label.
+- **#170**: Node zip fallback creates directories for directory entries instead of empty files (no more EEXIST).
+- **#172**: import `fs` in `lib/skills.js` so the #54 symlink overlap guard works again.
+- **#176**: **DSH 0.2.1-rc.3 and newer RCs are not supported.** Stay on **0.2.1-rc.2**. Unmatched patches stay pending or skipped.
+
+# 1.1.79
+
+## 中文
+
+- 版本 **1.1.79**。修复 bug，修复稳定性。
+- **#165**：社区版 DS Bot / DeepSeek Bot 按桌面宿主识别（`ds-bot` profile、Electron asar），不再误报 `set DSH_BASE`。
+- **#166**：pnpm 12 拦 `postinstall` 时补 `allowBuilds`，并写清 `--allow-build=dsh-purge` / `approve-builds`。
+- **#167**：升级后补回 `bundles` + 本体 insert，空芯片不再把启动钮藏掉，1.1.74 有的按钮会回来。
+- 应用/还原/卸载进度条跟 job 阶段；主智能体和子智能体同一份注入、权限和能力协议。
+- 新建会话不再把 `dsh-purge` 芯片甩到行尾。
+
+## English
+
+- **1.1.79**. Bug fixes and stability.
+- **#165**: community DS Bot / DeepSeek Bot is a desktop host (`ds-bot` profile, Electron asar); no more false `set DSH_BASE`.
+- **#166**: pnpm 12 skipped `postinstall`; write `allowBuilds` and document `--allow-build=dsh-purge`.
+- **#167**: restore `bundles` + body insert after upgrade so the 1.1.74 button comes back.
+- Apply / revert / uninstall progress follows the job; main and subagents share inject, permission, and capability text.
+- New-session no longer shoves the `dsh-purge` chip to the far right.
+
+# 1.1.78
+
+## 中文
+
+- 版本 **1.1.78**。修复 bug：停用/卸载后无法新建会话。
+- **#108**：停用或卸载时把 `agent-preset-registry.selectedDefault` 从 `redteam` 改回 `standard`，并清掉 `$DSH_HOME/.agent-presets/redteam`。热重载不会冲掉用户设的红队默认。
+- 卸载同时处理 `dsh.profile.bundles` / `dsh.profile.plugins`，桌面 profile 不再残留 `dsh-purge`。
+
+## English
+
+- **1.1.78**. Bug fix: new sessions after disable/uninstall.
+- **#108**: on disable or uninstall, reset `agent-preset-registry.selectedDefault` from `redteam` to `standard`, and remove `$DSH_HOME/.agent-presets/redteam`. Hot reload keeps a user-chosen redteam default.
+- Uninstall also strips `dsh.profile.bundles` / `dsh.profile.plugins`.
+
+# 1.1.77
+
+## 中文
+
+- 版本 **1.1.77**。修复 bug，修复稳定性。
+- 修长红队任务仍打公网：`渗透测试` / `红队` / `打点` / `拿站` 纳入门禁；正文按窗扫到 256KB，目标写在后半段也能拦。
+- 修后续步骤漏拦：每一步看工具参数，`tools/pre-execute` 遇到公网 IP/域名直接停轮。
+- 长文正则按窗扫，避免整篇回溯把事件循环卡死。
+
+## English
+
+- **1.1.77**. Bug fixes and stability.
+- Long red-team tasks no longer reach the public internet: `渗透测试` / red-team / 打点 / 拿站 are gated; the body is scanned in windows up to 256KB.
+- Later steps are gated too: tool arguments are checked, and `tools/pre-execute` stops on a public IP or name.
+- Long-text regex runs in windows so a huge paste cannot stall the event loop.
+
+# 1.1.76
+
+## 中文
+
+- 版本 **1.1.76**。适配只走 pnpm 的机器：在 profile 目录 `pnpm add` codeload 压缩包即可，`postinstall` 自动把 `dsh-purge` 写进 `bundles`。
+- 安装地址改成 `codeload.github.com`，避开 `github.com/archive` 的 302（pnpm 会 `fetch failed`）。不要 `pnpm add dsh-purge`（npm 仓库没有这个名字）。
+
+## English
+
+- **1.1.76**. pnpm-only hosts: `pnpm add` the codeload tarball inside the profile; `postinstall` writes `dsh-purge` into `bundles`.
+- Install URL is `codeload.github.com` so pnpm does not die on the `github.com/archive` 302. Do not `pnpm add dsh-purge` — that name is not on the npm registry.
+
+# 1.1.75
+
+## 中文
+
+- 版本 **1.1.75**。修 Hub 市场一键安装报 `already queued: dsh-purge`：`cordis.patch.yml` 不再把已经在 bundles 里的本体再 insert 一遍。
+- README 把安装写成三步：只用 GitHub 压缩包命令，不走插件市场 / `github:` / npm。
+
+## English
+
+- **1.1.75**. Fix Hub one-click `already queued: dsh-purge`: the bundle patch no longer inserts the plugin that is already in `bundles`.
+- README install is three steps: GitHub tarball only; skip the plugin market / `github:` / npm.
+
+# 1.1.74
+
+## 中文
+
+- 版本 **1.1.74**，优化若干拦截与加载 bug。适配 DSH **0.2.1-rc.2**（0.2.0 仍可用）。
+- 修靶场门禁：域名先解析再判 IP，不再靠 `.lab` / `.htb` 后缀放行；`hosts` 指到公网、解析失败、混有公网，一律拦。
+- 修身份绕过：`169.254` 云元数据不再当靶场；`::ffff:公网` 拆开再判；攻击句不写目标不再放行。
+- 修 DSH 0.2.1 预设加载：对象 schema 补 `additionalProperties`，装过的 redteam 预设清掉残留 `toolFilter`。
+- 修演练台被改成英文：中文页签收回。
+- 禁止制作外挂：会话门口硬拦，提示词 Rule 1 改为禁止。
+
+## English
+
+- **1.1.74**, bug-fix release. Target DSH **0.2.1-rc.2** (0.2.0 still works).
+- Lab gate: resolve first, then allow only private IPs. Suffixes are not an allow list.
+- Close identity holes: drop link-local metadata, unwrap IPv4-mapped IPv6, deny unnamed attack tasks.
+- DSH 0.2.1 preset load: seal object schemas; strip leftover `toolFilter`.
+- Restore Chinese drill-console tabs.
+- Game cheats are forbidden at the session gate.
+
+# 1.1.73
+
+## 中文
+
+- 版本 **1.1.73**，适配 DSH **0.2.1-rc.2**（0.2.0 仍可用）。
+- 0.2.1 兼容已落地：`{{cwd}}` 静态回退、补丁 #40、`toolFilter` 删除、`dsh-tools` 解析、hostFs fd 直通、桌面换包不自杀、`file:` 归档更新、Ctrl+Enter steer。
+- 界面操作文案补齐英文（演练台、清洗面板、补丁表、计分/技能指引）；`zh` 语言包与模型提示词保持中文。靶场默认拦截的 `own.hint` 仍按本仓库策略。
+- 随包技能 `paper-autopilot` + `npm run install:skill`。
+- 红队证据账本：`claimed → observed` 核实链、`ResidualUnknown`、8 个 `redteam_evidence_*` / `redteam_unknown_*` 工具。
+
+## English
+
+- **1.1.73**, target DSH **0.2.1-rc.2** (0.2.0 still works).
+- 0.2.1 compatibility in-tree: `{{cwd}}` fallback, patch #40, drop `toolFilter`, host `dsh-tools` resolve, hostFs fd pass-through, desktop helper self-kill fix, `file:` archive update, Ctrl+Enter steer.
+- Operator-facing UI copy is English; `zh` locale and model prompts stay Chinese. Lab default-deny `own.hint` is unchanged.
+- Bundled `paper-autopilot` skill + `npm run install:skill`.
+- Red-team evidence ledger: claimed→observed verification, ResidualUnknown, eight `redteam_evidence_*` / `redteam_unknown_*` tools.
 
 # 1.1.71
 

@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 		const { useState, useEffect, useCallback, useRef, Component } = react;
 
 		const name = "dsh-purge";
-		const inject = ["slots", "locale"];
+		const inject = ["slots", "locale", "uiConversation"];
 		const NS = "settings.dsh-purge";
 		let translate = (key) => key;
 		function useT() {
@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 				if (isAbortError(e)) throw new Error("timeout");
 				const msg = String((e && e.message) || e || "");
 				if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-					throw new Error("连不上接口，请确认 dsh 还在跑后 Ctrl+F5");
+					throw new Error("Cannot reach the API. Make sure dsh is still running, then press Ctrl+F5");
 				}
 				throw e;
 			} finally { clearTimeout(timer); }
@@ -127,17 +127,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 
 		const zh = {
 			nav: "规则设定",
-			"page.title": "DeepSeek Harness Purge",
-			"page.nav": "Purge",
-			"page.lead": "本机提示词与引擎层清洗。改完点「应用」，重启宿主后生效。",
-			"page.seg.armor": "破甲",
-			"page.seg.rules": "规则",
-			"page.seg.skills": "技能",
-			"page.seg.drill": "演练台",
-			"drill.title": "演练台",
-			"drill.lead": "资产、技能与本机环境。首次进入需要读完声明、等完倒计时并勾选三项。",
-			"drill.authorize": "开始授权",
-			"drill.unavailable": "演练台资源未随插件加载，重装或重启后可恢复。",
 			"dock.clean": "清洗",
 			"dock.drill": "演练台",
 			"dock.toggle": "dsh-purge",
@@ -146,7 +135,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"dock.redteam": "红队模式",
 			"dock.full": "全面浏览",
 			"dock.close": "收起",
-			"dock.openSettings": "设置页",
 			"dock.unauthorized": "未授权",
 			"welcome.title": "用户须知",
 			"welcome.lead": "首次安装本插件时请阅读以下说明。确认后本窗不再弹出。",
@@ -185,11 +173,9 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"theme.white": "白",
 			"theme.ink": "墨",
 			"purge.title": "补丁",
-			"purge.lead": "本机 0.2.1 的 82 个锚点：已应用 / 总数、命令 shim、备份状态。检测到待处理项时点应用。",
 			"override.title": "提示词",
-			"override.lead": "注入到 system 段的操作员指令。改成自己的稿子会按原样落盘，不再随插件刷新。",
-			"own.title": "自己的服务器",
-			"own.hint": "每行一个 IP 或完整主机名。可以写成 账号@主机，账号只用来认出这种写法。主机名会连同它当时解析出的地址一起放行。不要写密钥、密码、网段。",
+			"own.title": "本地靶场",
+			"own.hint": "开源版攻击任务只放行本机/内网 IP。域名会先解析，解析到的每一个地址都必须是私网或回环；hosts 把 .lab 指到公网 IP 也会拦。解析失败或混有公网地址一律拦截。",
 			"own.save": "保存名单",
 			"saved.own": "已保存自己的服务器",
 			"saved.own.dropped": "已保存。有 {n} 行不是单个 IP 或主机名，已丢掉",
@@ -197,6 +183,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"metric.purged.skip": "已写入。跳过 {n} 项，本机没有这些文件",
 			"metric.pendingShort": "待处理 {n}",
 			"metric.unmatchedShort": "没对上 {n}",
+			"metric.driftedShort": "漂移 {n}",
 			"metric.skipShort": "跳过 {n}",
 			"metric.unlocated.count": "—",
 			"metric.shim": "shim",
@@ -210,13 +197,29 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"status.off": "已关闭",
 			"status.pending": "待应用",
 			"status.unmatched": "没对上",
+			"status.drifted": "已漂移",
 			"status.skipped": "跳过",
-			"apply.hint": "点应用会打补丁并把当前默认提示词挂上，框里仍是插件旧默认时自动刷到加密槽，不必再点保存。只有你另写的稿才会按框落盘。待应用=原文还在。跳过=当前版本不需要或组件未安装。",
+			"apply.hint": "没改提示词框不用点保存，默认就是这份，启动和应用会写进 prompt-inject.md。只有自己改过再点保存才会覆盖。点应用打补丁。待应用=原文还在。跳过=当前版本不需要或组件未安装。漂移=官方原文已改，这条补丁没打上，需要更新 pattern。",
+			"flow.title": "清洗流程",
+			"flow.apply": "应用",
+			"flow.revert": "还原",
+			"flow.uninstall": "卸载",
+			"flow.home": "家目录",
+			"flow.locate": "宿主",
+			"flow.override": "提示词",
+			"flow.patch": "补丁",
+			"flow.shim": "启动器",
+			"flow.flash": "闪窗",
+			"flow.seed": "落盘",
+			"flow.done": "完成",
+			"flow.revert.step": "还原",
+			"flow.cleanup": "清理",
 			"warn.noRoot": "未定位到当前宿主的 @deepseek-ai，清洗不会生效。请完全退出后再打开本宿主，在本页点「应用」。桌面端安装目录可以是任意盘符；目录名带 DeepseekHarness / DeepSeek Harness 均可。",
 			"warn.noRoot.desktop": "官方客户端的代码在 app.asar 里。点「应用」会解开并自动重启，不用另跑脚本。若一直显示还没定位，先完全退出客户端再开，再点「应用」。第三方 DSH Desktop 直接点「应用」。",
 			"unpack.restarting": "补丁已写入。点「重启」后客户端会自己重新打开。",
 			"restart.fullQuit": "正在重启，客户端会自己重新打开。",
 			"warn.noInject": "官方始终用默认提示词。红队开了规则集就只用规则集；没开时用去掉 CTF 的默认提示词，再接红队操作。两边都空会提示必须添加。",
+			"warn.hostVersion": "当前宿主是 {v}，插件适配的是 {t}。官方原文对不上时补丁会显示「漂移」，建议换回适配的宿主版本。",
 			"need.prompt": "提示词和规则集都是空的，必须先添加提示词，或启用一条有内容的规则集。",
 			"btn.restoreInject": "恢复默认",
 			"saved.restoreInject": "已恢复默认提示词",
@@ -278,7 +281,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"ok.done": "已完成",
 			"err.action": "失败: {error}",
 			"err.status": "读取失败: {error}",
-			"err.stale": "另一个窗口刚改过状态（现在是 rev {rev}，最后一次动作 {last}）。已重新读取，请确认后再点。",
 			"err.override": "读取失败: {error}",
 			"err.rules": "读取失败: {error}",
 			"err.read": "读取失败: {error}",
@@ -435,7 +437,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"patch.69": "deepseek-flash 保持官方 in-history",
 			"patch.72": "Messages 的 system 用当前系统提示",
 			"patch.73": "极简 bash 去掉误留的镜像说明",
-			"patch.74": "首发前先挂默认提示词",
+			"patch.74": "启动/应用把默认提示词写入 prompt-inject.md",
 			"patch.75": "回退把已完成任务收回成未开始",
 			"patch.76": "unrestricted 预设去掉身份句",
 			"patch.77": "回退标记到达时丢弃已发送消息",
@@ -444,6 +446,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"patch.82": "主进程兜底 DSH_PROFILE=desktop",
 			"patch.83": "host 信号杀时不报错不弹对话框",
 			"patch.84": "host code=0 正常退出不报错 (消除 stopped 对话框)",
+			"patch.85": "prompt() 的 steer 仍走插话，不压成 followup",
+			"patch.86": "队列插话走 steer；公共 steer() 保持下一步",
+			"patch.87": "首次 assemble 用 prepare 返回的当前模式 systemPrompt",
+			"patch.88": "去掉 renderPrompt 后的挂针，注入只走 assemble",
 			"status.unlocated": "未定位",
 			"status.na": "本端不需要",
 			"metric.unlocated": "还没定位到本机 Harness",
@@ -456,21 +462,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"rewind.busy": "回退中…",
 			"rewind.empty": "没有可回退的上一句",
 			"rewind.fail": "回退失败: {error}",
-			"rewind.once": "回退一次",
-			"rewind.once.hint": "把这一轮发出去的那句放回输入框，并清掉这一轮",
+			"rewind.once": "回退上一步",
+					"rewind.once.hint": "撤回最后一步已进行的对话，新会话接上之前的上下文；那句回到输入框再发送",
 			"rewind.round": "回退上一轮",
-			"rewind.round.hint": "把这一轮发出去的那句放回输入框；子代理也只撤这一轮",
-			"gate.title": "审批与审计",
-			"gate.hint": "审计永远记流水。审批档位只影响模型发起的 purge_apply / purge_revert / purge_uninstall；你自己点按钮不受影响。",
-			"gate.mode.audit": "只记流水（默认，行为同旧版）",
-			"gate.mode.enforce": "要求一次批准（allowed-once）",
-			"gate.gated": "受管工具：{list}",
-			"gate.saved": "已保存，重启 dsh 后对工具调用生效。",
-			"gate.audit.show": "查看审计流水",
-			"gate.audit.hide": "收起审计流水",
-			"gate.audit.refresh": "刷新",
-			"gate.audit.busy": "读取中…",
-			"gate.audit.empty": "还没有记录。",
+					"rewind.round.hint": "撤回上一整轮（含子代理）已进行的对话，新会话接上之前的上下文；那句回到输入框再发送",
 			"hooksDeny.title": "Hooks 拦截",
 			"hooksDeny.bypass": "放行 hooks 的 deny / ask（补丁 30 / 31 / 64 / 65）",
 			"hooksDeny.hint": "关掉后，用户自己的 PreToolUse / UserPromptSubmit / Stop hook 的 deny 会按官方逻辑生效。官方 ask 分支本身是空操作，关开关不会弹出审批框。改完后点「应用」并重启才写进宿主。",
@@ -493,17 +488,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 
 		const en = {
 			nav: "Rules",
-			"page.title": "DeepSeek Harness Purge",
-			"page.nav": "Purge",
-			"page.lead": "Prompt and engine-level cleaning for this install. Press Apply, then restart the host.",
-			"page.seg.armor": "Armor",
-			"page.seg.rules": "Rules",
-			"page.seg.skills": "Skills",
-			"page.seg.drill": "Drill",
-			"drill.title": "Drill",
-			"drill.lead": "Assets, skills, and the local environment. The first visit needs the notice, the countdown, and three boxes.",
-			"drill.authorize": "Start authorization",
-			"drill.unavailable": "Drill resources are not loaded; reinstall or restart to restore them.",
 			"dock.clean": "Clean",
 			"dock.drill": "Drill",
 			"dock.toggle": "dsh-purge",
@@ -512,7 +496,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"dock.redteam": "Red team",
 			"dock.full": "Full view",
 			"dock.close": "Collapse",
-			"dock.openSettings": "Settings page",
 			"dock.unauthorized": "Unauthorized",
 			"welcome.title": "User notice",
 			"welcome.lead": "Please read this on first install. After you confirm, it will not appear again.",
@@ -551,11 +534,9 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"theme.white": "Light",
 			"theme.ink": "Ink",
 			"purge.title": "Patches",
-			"purge.lead": "82 anchors on this 0.2.1 install: applied / total, command shims, backup state. Press Apply when anything is pending.",
 			"override.title": "Prompt",
-			"override.lead": "Operator instructions injected into the system section. Your own text is written verbatim and stops following plugin updates.",
-			"own.title": "Own servers",
-			"own.hint": "One IP or exact hostname per line. account@host is accepted; the account only identifies that host. A hostname also allows the addresses it resolves to. Do not enter a key, a password, or a range.",
+			"own.title": "Local lab only",
+			"own.hint": "The open-source build only allows localhost/private IPs. Domains are resolved first; every A/AAAA must be loopback or RFC1918. A hosts entry that points .lab at a public IP is blocked. Failed or mixed public answers are denied.",
 			"own.save": "Save list",
 			"saved.own": "Own servers saved",
 			"saved.own.dropped": "Saved. {n} lines were not a single IP or hostname and were dropped",
@@ -563,6 +544,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"metric.purged.skip": "Written. Skipped {n}; those files are not on this install",
 			"metric.pendingShort": "Pending {n}",
 			"metric.unmatchedShort": "No match {n}",
+			"metric.driftedShort": "Drifted {n}",
 			"metric.skipShort": "Skipped {n}",
 			"metric.unlocated.count": "—",
 			"metric.shim": "shim",
@@ -576,13 +558,29 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"status.off": "Off",
 			"status.pending": "Pending",
 			"status.unmatched": "No match",
+			"status.drifted": "Drifted",
 			"status.skipped": "Skipped",
-			"apply.hint": "Apply writes patches and hangs the current default prompt. A stale plugin default in the box is refreshed from the sealed slot; a separate save is unnecessary. Only a prompt you wrote yourself is kept from the box. Pending = original text still present. Skipped = not needed for this version or the component is not installed.",
+			"apply.hint": "If you did not edit the prompt box, do not save. The default is already used and is written to prompt-inject.md on start/apply. Save only after you change it. Apply writes host patches. Pending = original text still present. Skipped = not needed for this version or the component is not installed. Drifted = the official source changed, this patch did not land and its pattern needs an update.",
+			"flow.title": "Clean flow",
+			"flow.apply": "Apply",
+			"flow.revert": "Restore",
+			"flow.uninstall": "Uninstall",
+			"flow.home": "Home",
+			"flow.locate": "Host",
+			"flow.override": "Prompt",
+			"flow.patch": "Patch",
+			"flow.shim": "Launcher",
+			"flow.flash": "Flash",
+			"flow.seed": "Seed",
+			"flow.done": "Done",
+			"flow.revert.step": "Restore",
+			"flow.cleanup": "Cleanup",
 			"warn.noRoot": "Could not find this host’s @deepseek-ai tree, so Apply will not patch anything. Fully quit and reopen this host, then Apply here. Desktop may live on any drive; folder names like DeepseekHarnessDesktop or DeepSeek Harness are fine.",
 			"warn.noRoot.desktop": "Official Harness keeps its code in app.asar. Apply unpacks it and restarts the app. If this page stays “not found”, fully quit the client, reopen it, then Apply again. Third-party DSH Desktop: just Apply.",
 			"unpack.restarting": "Patches are written. Click Restart and the client opens again by itself.",
 			"restart.fullQuit": "Restarting. The client will open again by itself.",
 			"warn.noInject": "Official mode always uses the default prompt. Red team uses only the active rule set; otherwise it uses the default prompt without the CTF section, then the red team steps. If both are empty you will be asked to add a prompt.",
+			"warn.hostVersion": "This host is {v}, but the plugin targets {t}. When the official source no longer matches, patches show up as “drifted” — switch back to the targeted host version.",
 			"need.prompt": "Both the prompt and the rule set are empty. Add a prompt, or enable a rule that has content.",
 			"btn.restoreInject": "Reset default",
 			"saved.restoreInject": "Default prompt restored",
@@ -644,7 +642,6 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"ok.done": "Done",
 			"err.action": "Failed: {error}",
 			"err.status": "Read failed: {error}",
-			"err.stale": "Another window changed the state (now rev {rev}, last action {last}). Re-read; check before clicking again.",
 			"err.override": "Read failed: {error}",
 			"err.rules": "Read failed: {error}",
 			"err.read": "Read failed: {error}",
@@ -801,7 +798,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"patch.69": "deepseek-flash keeps the official in-history flag",
 			"patch.72": "Messages system field uses the current system prompt",
 			"patch.73": "Minimal preset drops stray mirror sentence",
-			"patch.74": "Hang default prompt before first assemble",
+			"patch.74": "Start/apply writes the default prompt to prompt-inject.md",
 			"patch.75": "Rewind resets completed todos to pending",
 			"patch.76": "Unrestricted preset: strip identity sentence",
 			"patch.77": "Rewind marker drops already-sent messages",
@@ -810,6 +807,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"patch.82": "Fallback DSH_PROFILE=desktop in main process",
 			"patch.83": "Don't fail on signal kill (no crash dialog)",
 			"patch.84": "Don't fail on code=0 clean exit (no stopped dialog)",
+			"patch.85": "prompt() steer stays interrupt, not followup",
+			"patch.86": "Queue steer stays steer; public steer() stays next-step",
+			"patch.87": "First assemble uses the systemPrompt prepare returned",
+			"patch.88": "Drop the hang after renderPrompt; inject is assemble only",
 			"status.na": "Not for this host",
 			"metric.sealed": "Official client found. Apply to unpack",
 			"metric.sealed.count": "Sealed",
@@ -822,21 +823,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"rewind.busy": "Undoing…",
 			"rewind.empty": "Nothing to undo",
 			"rewind.fail": "Undo failed: {error}",
-			"rewind.once": "Undo once",
-			"rewind.once.hint": "Put this round's message back in the box and drop only this round",
-			"rewind.round": "Undo last round",
-			"rewind.round.hint": "Put this round's message back in the box; subagents drop only this round",
-			"gate.title": "Approval and audit",
-			"gate.hint": "Audit always records. The approval tier only affects model-issued purge_apply / purge_revert / purge_uninstall; your own clicks are unaffected.",
-			"gate.mode.audit": "Record only (default, same as before)",
-			"gate.mode.enforce": "Require one-time approval (allowed-once)",
-			"gate.gated": "Gated tools: {list}",
-			"gate.saved": "Saved; applies to tool calls after dsh restarts.",
-			"gate.audit.show": "Show audit trail",
-			"gate.audit.hide": "Hide audit trail",
-			"gate.audit.refresh": "Refresh",
-			"gate.audit.busy": "Reading…",
-			"gate.audit.empty": "No records yet.",
+			"rewind.once": "Undo last step",
+					"rewind.once.hint": "Withdraw the last step into a new session that keeps earlier context; the line returns to the box",
+			"rewind.round": "Undo last turn",
+					"rewind.round.hint": "Withdraw the last turn (and its subagents) into a new session that keeps earlier context; the line returns to the box",
 			"hooksDeny.title": "Hook interception",
 			"hooksDeny.bypass": "Bypass hook deny / ask (patches 30 / 31 / 64 / 65)",
 			"hooksDeny.hint": "When off, your own PreToolUse / UserPromptSubmit / Stop hook deny runs as the official host wrote it. The official ask branch is a no-op; turning this off will not show an approval dialog. Click Apply and restart to write the host files.",
@@ -857,249 +847,192 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"continue.fail": "Continue failed: {error}",
 		};
 
-		/* ────────────────────────────────────────────────────────────────────────
-		 * 视觉层 v2（对齐 DeepSeek Harness 自身的设计语言）
-		 *
-		 * 旧版是自己发明的一套皮：衬线标题 + 橄榄绿玻璃 + 手写 --dshp-* 调色板。
-		 * 结果是「设置里嵌了个别的产品」。现在整个面板只吃官方 token：
-		 *   · 排版   --dsw-font-*（s-14 / xs-13 / xxs-12 / xxxs-11 与官方设置页同阶）
-		 *   · 圆角   --dsw-radius-{xs,sm,md,lg,xl}
-		 *   · 底色   --dsw-alias-bg-layer-{1,2,3} / bg-base
-		 *   · 描边   --dsw-alias-border-l{1..4}
-		 *   · 文字   --dsw-alias-label-{primary,secondary,tertiary,caption}
-		 *   · 状态   --dsw-alias-state-{success,warn,error}-primary
-		 *   · 交互   --dsw-alias-interactive-bg-{hover,active}
-		 *   · 卡片   --dsw-alias-settings-card-{fill,stroke}
-		 * 保留 --dshp-* 作为语义别名（ok/warn/bad/accent…），让老组件不用改。
-		 * 强调色只出现在三处：主按钮、当前项、状态点。其余一律中性色。
-		 * ──────────────────────────────────────────────────────────────────────── */
 		const PURGE_CSS = `
-.dshp-root{
-  --dshp-display:var(--dsw-font-family,inherit);
-  --dshp-sans:var(--dsw-font-family,inherit);
-  --dshp-mono:var(--dsh-family-code,"Cascadia Mono",ui-monospace,SFMono-Regular,Menlo,monospace);
-  --dshp-ease:var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1));
-  --dshp-bg:transparent;
-  --dshp-paper:var(--dsw-alias-settings-card-fill,var(--dsw-alias-bg-layer-2,color-mix(in srgb,currentColor 4%,transparent)));
-  --dshp-ink:var(--dsw-alias-label-primary,currentColor);
-  --dshp-mute:var(--dsw-alias-label-secondary,color-mix(in srgb,currentColor 62%,transparent));
-  --dshp-line:var(--dsw-alias-settings-card-stroke,var(--dsw-alias-border-l2,color-mix(in srgb,currentColor 12%,transparent)));
-  --dshp-fill:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));
-  --dshp-accent:var(--dsw-alias-state-business-primary,var(--dsw-alias-button-info-fill,#4176e6));
-  --dshp-accent-soft:color-mix(in srgb,var(--dshp-accent) 14%,transparent);
-  --dshp-ok:var(--dsw-alias-state-success-primary,#22c55e);
-  --dshp-warn:var(--dsw-alias-state-warn-primary,#f59e0b);
-  --dshp-bad:var(--dsw-alias-state-error-primary,#ef4444);
-  --dshp-danger:var(--dsw-alias-state-error-primary,#ef4444);
-  max-width:720px;display:flex;flex-direction:column;gap:var(--dsw-gap-16,16px);padding:0;border-radius:0;background:transparent;color:var(--dshp-ink);
-  font-family:var(--dshp-sans);font-size:14px;line-height:22px;-webkit-font-smoothing:antialiased;text-shadow:none}
-.dshp-root[data-theme="white"]{color-scheme:light}
-.dshp-root[data-theme="dusk"]{color-scheme:dark}
-.dshp-root *,.dshp-root *::before,.dshp-root *::after{box-sizing:border-box}
-/* 分区标题：官方设置页的 h2/h3 阶（16/24 500），不用衬线 */
-.dshp-title,.dshp-sub h4,.dshp-block-head h4,.dshp-group-h strong,.dshp-metric b,.dshp-rule-name,.dshp-now-ver{
-  font-family:inherit;font-weight:500;letter-spacing:0;color:var(--dshp-ink);margin:0}
-.dshp-title{font-size:16px;line-height:24px}
-.dshp-kicker{font-family:var(--dshp-mono);font-size:11px;line-height:16px;letter-spacing:.02em;color:var(--dsw-alias-label-caption,var(--dshp-mute));margin:0 0 2px;text-transform:none}
+.dshp-root{--dshp-display:inherit;--dshp-sans:inherit;--dshp-mono:ui-monospace,"Cascadia Mono","Sarasa Mono SC",monospace;--dshp-ease:cubic-bezier(.22,1,.36,1);--dshp-glass:blur(18px) saturate(1.35);--dshp-hi:color-mix(in srgb,#fff 42%,transparent);max-width:920px;display:flex;flex-direction:column;gap:16px;padding:16px;border-radius:12px;background:transparent;color:var(--dshp-ink);font-family:inherit}
+.dshp-root{--dshp-bg:transparent;--dshp-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);--dshp-ink:var(--dsw-alias-label-primary,#16140f);--dshp-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#16140f) 72%,var(--dsw-alias-label-secondary,#5c564c));--dshp-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);--dshp-fill:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 14%,transparent);--dshp-accent:var(--dsw-alias-brand-primary,#3d8f68);--dshp-accent-soft:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent);--dshp-ok:#2f6b4f;--dshp-warn:#8a5a12;--dshp-bad:#9a3434}
+.dshp-root[data-theme="white"]{color-scheme:light;--dshp-hi:color-mix(in srgb,#fff 48%,transparent)}
+.dshp-root[data-theme="dusk"]{color-scheme:dark;--dshp-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);--dshp-ink:var(--dsw-alias-label-primary,#f4f1ea);--dshp-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#f4f1ea) 78%,var(--dsw-alias-label-secondary,#c9c3b8));--dshp-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent);--dshp-ok:#8fd0a8;--dshp-warn:#e4c48a;--dshp-bad:#f0b4b4;--dshp-hi:color-mix(in srgb,#fff 10%,transparent)}
 .dshp-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px}
-.dshp-switch{display:inline-flex;border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-md,12px);overflow:hidden;background:var(--dsw-alias-button-ghost-active-fill,var(--dshp-fill))}
-.dshp-switch button{appearance:none;border:0;background:transparent;color:var(--dshp-mute);font:inherit;font-size:12px;line-height:16px;padding:5px 12px;cursor:pointer;border-radius:calc(var(--dsw-radius-md,12px) - 1px)}
-.dshp-switch button.is-on{background:var(--dsw-alias-bg-layer-1,transparent);color:var(--dshp-ink);box-shadow:0 1px 2px color-mix(in srgb,#000 10%,transparent)}
+.dshp-switch{display:inline-flex;border:1px solid var(--dshp-line);border-radius:999px;overflow:hidden;background:var(--dshp-paper)}
+.dshp-switch button{appearance:none;border:0;background:transparent;color:var(--dshp-mute);font:12px/1 var(--dshp-sans);padding:8px 12px;cursor:pointer}
+.dshp-switch button.is-on{background:var(--dshp-accent-soft);color:var(--dshp-ink)}
 .dshp-switch button:focus-visible{outline:2px solid var(--dshp-accent);outline-offset:-2px}
-/* 面板 = 官方 settings rowCard：0.5px 描边 + 卡片底色 + xl 圆角 */
-.dshp-panel{border:.5px solid var(--dshp-line);background:var(--dshp-paper);border-radius:var(--dsw-radius-xl,20px);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
-.dshp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0;flex-wrap:wrap}
-.dshp-panel-lead{margin:2px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-tertiary,var(--dshp-mute));max-width:60ch}
-.dshp-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 0}
-.dshp-sub h4{font-size:14px;line-height:22px}
-/* 指标条：不套卡片。面板本身已经是卡，里面再摆三张卡就是卡中卡。
-   这里用一条统计带 + 竖分隔线，数字自己承担层级。 */
-.dshp-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:12px 0 2px;border-top:.5px solid var(--dsw-alias-border-l1,var(--dshp-line))}
-.dshp-metric{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 16px;min-height:44px}
-.dshp-metric:first-child{padding-left:0}
-.dshp-metric+.dshp-metric{border-left:.5px solid var(--dsw-alias-border-l1,var(--dshp-line))}
-.dshp-metric b{font-size:16px;line-height:24px;font-variant-numeric:tabular-nums;font-weight:500}
-.dshp-metric span{font-size:12px;line-height:18px;color:var(--dshp-mute)}
-.dshp-bar{height:4px;border-radius:999px;background:var(--dsw-alias-bg-skeleton,var(--dshp-fill));overflow:hidden;margin:0}
-.dshp-bar>i{display:block;height:100%;background:var(--dshp-accent);border-radius:999px;width:0;transition:width .4s var(--dshp-ease)}
-/* 补丁分组：行，不是卡。面板里每一组只占一行（展开才出现表格），
-   用发丝线分隔，避免「卡片里套卡片」。 */
-.dshp-group{border:0;border-top:.5px solid var(--dsw-alias-border-l1,var(--dshp-line));margin:0;background:transparent;border-radius:0;overflow:hidden}
-.dshp-group-h{width:100%;display:flex;align-items:center;gap:10px;padding:9px 0;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left}
-.dshp-group-h:hover{background:transparent;color:var(--dshp-ink)}
-.dshp-group-h:hover strong{text-decoration:underline;text-underline-offset:2px}
+.dshp-panel,.dshp-metric,.dshp-group,.dshp-ask,.dshp-modal,.dshp-rulelist,.dshp-active,.dshp-switch,.dshp-editor,.dshp-cwd-list,.dshp-create{border:1px solid var(--dshp-line);background:var(--dshp-paper);backdrop-filter:var(--dshp-glass);-webkit-backdrop-filter:var(--dshp-glass);box-shadow:inset 0 1px 0 var(--dshp-hi)}
+.dshp-panel{border-radius:12px;padding:16px}
+.dshp-kicker{font-family:var(--dshp-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dshp-mute);margin:0 0 4px}
+.dshp-title{font-family:inherit;font-size:20px;font-weight:600;letter-spacing:0;line-height:28px;margin:0;color:var(--dshp-ink);text-wrap:balance}
+.dshp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.dshp-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:24px 0 12px}
+.dshp-sub h4{margin:0;font-family:inherit;font-size:16px;font-weight:600;line-height:24px}
+.dshp-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.dshp-metric{padding:12px;min-height:64px;display:flex;flex-direction:column;gap:4px;border-radius:8px}
+.dshp-metric b{font-family:inherit;font-size:18px;font-weight:600;line-height:28px}
+.dshp-metric span{font-size:12px;line-height:16px;color:var(--dshp-mute)}
+.dshp-bar{height:4px;border-radius:999px;background:var(--dshp-line);overflow:hidden;margin:8px 0 16px}
+.dshp-bar>i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left center;background:var(--dshp-accent);transition:transform 500ms var(--dshp-ease)}
+.dshp-flow{display:flex;align-items:center;gap:0;margin:0 0 16px;overflow-x:auto;padding:4px 0}
+.dshp-flow-kind{font:12px/16px var(--dshp-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dshp-mute);margin:0 12px 0 0;flex:0 0 auto}
+.dshp-flow-node{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:44px;opacity:.42;transition:opacity 500ms var(--dshp-ease),transform 500ms var(--dshp-ease)}
+.dshp-flow-node b{width:22px;height:22px;border-radius:99px;border:1px solid var(--dshp-line);display:flex;align-items:center;justify-content:center;font:11px/1 var(--dshp-mono);background:var(--dshp-paper)}
+.dshp-flow-node em{font-style:normal;font-size:12px;line-height:16px;color:var(--dshp-mute);white-space:nowrap}
+.dshp-flow-node.is-cur{opacity:1;transform:translateY(-2px)}
+.dshp-flow-node.is-cur b{border-color:var(--dshp-accent);background:var(--dshp-accent-soft);box-shadow:0 0 0 4px var(--dshp-accent-soft)}
+.dshp-flow-node.is-done{opacity:.92}
+.dshp-flow-node.is-done b{border-color:var(--dshp-ok);background:color-mix(in srgb,var(--dshp-ok) 18%,transparent);color:var(--dshp-ok)}
+.dshp-flow-node.is-bad b{border-color:var(--dshp-bad);color:var(--dshp-bad);background:color-mix(in srgb,var(--dshp-bad) 14%,transparent)}
+.dshp-flow-wire{flex:1 1 12px;min-width:10px;height:2px;background:var(--dshp-line);position:relative;overflow:hidden;margin:0 4px 16px}
+.dshp-flow-wire.is-on{background:color-mix(in srgb,var(--dshp-accent) 55%,var(--dshp-line))}
+.dshp-flow-wire.is-on>i{position:absolute;inset:0 auto 0 -40%;width:40%;background:var(--dshp-accent);animation:dshp-flow-pulse 1.4s cubic-bezier(.65,0,.35,1) infinite}
+@keyframes dshp-flow-pulse{to{transform:translateX(360%)}}
+@media (prefers-reduced-motion:reduce){
+.dshp-flow-wire.is-on>i{animation:none;display:none}
+.dshp-flow-node.is-cur{transform:none}
+}
+.dshp-group{margin:0 0 8px;border-radius:8px;overflow:hidden}
+.dshp-group-h{width:100%;display:flex;align-items:center;gap:12px;padding:8px 12px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left}
+.dshp-group-h:hover{background:var(--dshp-fill)}
 .dshp-group-h:focus-visible{outline:2px solid var(--dshp-accent);outline-offset:-2px}
-.dshp-group-h strong{font-size:14px;line-height:22px}
-.dshp-group-h em{font-style:normal;font-size:12px;line-height:18px;color:var(--dshp-mute);flex:1}
-.dshp-count{font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dsw-alias-label-caption,var(--dshp-mute));font-variant-numeric:tabular-nums}
-.dshp-caret{display:inline-block;width:12px;flex:none;font-size:11px;line-height:1;color:var(--dsw-alias-label-tertiary,var(--dshp-mute));transition:transform .15s var(--dshp-ease)}
-.dshp-group.is-open .dshp-caret{transform:rotate(90deg)}
-.dshp-table{width:100%;border-collapse:collapse;font-size:13px;line-height:20px}
-.dshp-table th{text-align:left;font-weight:500;font-size:12px;line-height:18px;color:var(--dshp-mute);padding:7px 12px;border-bottom:.5px solid var(--dshp-line)}
-.dshp-table td{padding:7px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1,var(--dshp-line));vertical-align:middle;color:var(--dshp-ink)}
+.dshp-group-h strong{font-family:inherit;font-size:14px;line-height:20px;font-weight:600}
+.dshp-group-h em{font-style:normal;font-size:12px;color:var(--dshp-mute);flex:1}
+.dshp-count{font-family:var(--dshp-mono);font-size:12px;color:var(--dshp-mute)}
+.dshp-table{width:100%;border-collapse:collapse;font-size:12px;line-height:16px}
+.dshp-table th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.06em;color:var(--dshp-mute);padding:8px 12px;border-bottom:1px solid var(--dshp-line)}
+.dshp-table td{padding:8px 12px;border-bottom:1px solid var(--dshp-line);vertical-align:middle}
 .dshp-table tr:last-child td{border-bottom:0}
 .dshp-table tr.is-on td{background:var(--dshp-accent-soft)}
-.dshp-id{font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dsw-alias-label-caption,var(--dshp-mute));width:44px;font-variant-numeric:tabular-nums}
+.dshp-id{font-family:var(--dshp-mono);opacity:.75;width:42px}
 .dshp-actions{text-align:right;white-space:nowrap}
 .dshp-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.dshp-row+.dshp-row{margin-top:10px}
-/* 审批档位：与上方 hooks 开关同区块，靠发丝线分隔，不再套一层卡片 */
-.dshp-gate{margin-top:12px;padding-top:12px;border-top:.5px solid var(--dsw-alias-border-l2,var(--dshp-line))}
-.dshp-gate .dshp-hint{margin:0 0 6px;color:var(--dsw-alias-label-tertiary,var(--dshp-mute));font-size:12px;line-height:18px}
-.dshp-gate label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dsw-alias-label-primary,inherit)}
-.dshp-audit{max-height:220px;overflow:auto;margin:8px 0 0;padding:10px 12px;border-radius:var(--dsw-radius-md,12px);
-  background:var(--dsw-alias-bg-layer-2,rgba(0,0,0,.03));font-family:var(--dsw-font-family-mono,ui-monospace,monospace);
-  font-size:11.5px;line-height:17px;white-space:pre-wrap;word-break:break-all;color:var(--dsw-alias-label-secondary,var(--dshp-mute))}
-/* 状态胶囊：中性底 + 语义点，不再用彩色描边 */
-.dshp-pill{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;line-height:18px;padding:1px 8px;border:.5px solid var(--dsw-alias-border-l3,var(--dshp-line));border-radius:999px;background:transparent;color:var(--dshp-mute);white-space:nowrap}
-.dshp-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
-.dshp-pill.is-ok{color:var(--dshp-ok);border-color:color-mix(in srgb,var(--dshp-ok) 38%,var(--dsw-alias-border-l3,transparent))}
-.dshp-pill.is-wait{color:var(--dshp-warn);border-color:color-mix(in srgb,var(--dshp-warn) 38%,var(--dsw-alias-border-l3,transparent))}
-.dshp-pill.is-miss{color:var(--dsw-alias-label-dimmed,var(--dshp-mute))}
-.dshp-pill.is-bad{color:var(--dshp-bad);border-color:color-mix(in srgb,var(--dshp-bad) 38%,var(--dsw-alias-border-l3,transparent))}
-/* 按钮：官方 primaryButton / secondaryButton 尺寸（h36 / md 圆角 / 14px） */
-.dshp-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;font-size:14px;line-height:22px;font-weight:400;min-height:36px;padding:0 14px;border-radius:var(--dsw-radius-md,12px);border:.5px solid transparent;cursor:pointer;transition:background .15s var(--dshp-ease),border-color .15s var(--dshp-ease),opacity .15s var(--dshp-ease);background:transparent;color:var(--dshp-ink)}
+.dshp-row+.dshp-row{margin-top:12px}
+.dshp-pill{display:inline-flex;align-items:center;gap:4px;font-family:var(--dshp-mono);font-size:12px;padding:2px 8px;border:1px solid var(--dshp-line);border-radius:999px;line-height:16px;background:color-mix(in srgb,var(--dshp-paper) 70%,transparent)}
+.dshp-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.dshp-pill.is-ok{color:var(--dshp-ok);border-color:color-mix(in srgb,var(--dshp-ok) 30%,var(--dshp-line))}
+.dshp-pill.is-wait{color:var(--dshp-warn);border-color:color-mix(in srgb,var(--dshp-warn) 30%,var(--dshp-line))}
+.dshp-pill.is-miss{color:var(--dshp-mute)}
+.dshp-pill.is-bad{color:var(--dshp-bad)}
+.dshp-btn{appearance:none;font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;font-size:16px;line-height:24px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:transform 500ms var(--dshp-ease),opacity 300ms var(--dshp-ease);-webkit-text-fill-color:currentColor;text-indent:0;overflow:visible}
+.dshp-btn:hover:not(:disabled){transform:translateY(-1px)}
+.dshp-btn:active:not(:disabled){transform:scale(0.98)}
 .dshp-btn:disabled{opacity:.45;cursor:not-allowed}
 .dshp-btn:focus-visible{outline:2px solid var(--dshp-accent);outline-offset:2px}
-.dshp-btn-primary{background:var(--dsw-alias-button-primary-fill,var(--dshp-ink));color:var(--dsw-alias-label-primary-foreground,#fff);border-color:transparent}
-.dshp-btn-primary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,color-mix(in srgb,var(--dshp-ink) 82%,transparent))}
-.dshp-btn-ghost{background:transparent;color:var(--dshp-ink);border-color:var(--dsw-alias-border-l3,var(--dshp-line))}
-.dshp-btn-ghost:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-solid,var(--dshp-fill))}
-.dshp-btn-danger{background:transparent;color:var(--dshp-bad);border-color:color-mix(in srgb,var(--dshp-bad) 44%,var(--dsw-alias-border-l3,transparent))}
-.dshp-btn-danger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger,color-mix(in srgb,var(--dshp-bad) 10%,transparent))}
-.dshp-btn-solid-danger{background:color-mix(in srgb,var(--dshp-bad) 14%,transparent);color:var(--dshp-bad);border-color:color-mix(in srgb,var(--dshp-bad) 40%,transparent)}
-.dshp-btn-solid-danger:hover:not(:disabled){background:color-mix(in srgb,var(--dshp-bad) 22%,transparent)}
-.dshp-btn-tiny{min-height:28px;padding:0 10px;font-size:13px;line-height:20px}
-/* 输入：官方 input —— 0.5px l4 描边 / md 圆角 / layer-1 底 */
-.dshp-field,.dshp-area{width:100%;font-family:inherit;font-size:13px;line-height:20px;padding:6px 10px;background:var(--dsw-alias-bg-layer-1,transparent);color:var(--dshp-ink);border:.5px solid var(--dsw-alias-border-l4,var(--dshp-line));border-radius:var(--dsw-radius-md,12px);resize:vertical}
-.dshp-field{width:auto;min-width:140px;height:32px;padding:0 10px}
-.dshp-area{font-family:var(--dshp-mono);font-size:12.5px;line-height:1.55;min-height:220px}
-.dshp-field:focus,.dshp-area:focus{outline:none;border-color:var(--dshp-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--dshp-accent) 18%,transparent)}
-.dshp-field:disabled,.dshp-area:disabled{opacity:.5}
-.dshp-cr-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;font-size:13px;line-height:20px}
-.dshp-cr-row label{display:inline-flex;align-items:center;gap:6px;color:var(--dshp-ink);cursor:pointer}
+.dshp-btn-primary{background:var(--dshp-accent);color:#fff;border-color:var(--dshp-accent)}
+.dshp-btn-primary:hover:not(:disabled){background:color-mix(in srgb,var(--dshp-accent) 86%,#fff);color:#fff}
+.dshp-btn-ghost{background:transparent;color:var(--dshp-ink);border-color:var(--dshp-line)}
+.dshp-btn-danger{background:transparent;color:var(--dshp-bad);border-color:color-mix(in srgb,var(--dshp-bad) 40%,var(--dshp-line))}
+.dshp-btn-solid-danger{background:color-mix(in srgb,var(--dshp-bad) 16%,var(--dshp-bg));color:var(--dshp-bad);border-color:color-mix(in srgb,var(--dshp-bad) 30%,var(--dshp-line))}
+.dshp-btn-tiny{padding:4px 12px;font-size:14px;line-height:20px}
+.dshp-field,.dshp-area{width:100%;box-sizing:border-box;font:13px/1.55 var(--dshp-mono);padding:8px 12px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 38%,transparent);color:var(--dshp-ink);border:1px solid var(--dshp-line);border-radius:8px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.dshp-field{width:auto;min-width:140px}
+.dshp-cr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0;font-size:13px}
+.dshp-cr-row label{display:inline-flex;align-items:center;gap:6px;color:var(--dshp-ink)}
 .dshp-cr-num{width:64px;min-width:64px;height:28px;padding:0 8px}
 .dshp-cr-text{width:120px;min-width:88px;height:28px;padding:0 8px}
 .dshp-ver{width:100%;min-width:0;max-width:none;height:32px;padding:0 10px;font-size:12px}
-.dshp-rel{margin:0;display:flex;flex-direction:column;gap:8px}
-.dshp-now{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
-.dshp-now-label{font-size:12px;line-height:18px;color:var(--dshp-mute)}
-.dshp-now-ver{font-size:16px;line-height:24px;font-variant-numeric:tabular-nums}
-.dshp-now-mark{display:inline-flex;align-items:center;padding:0 6px;border-radius:var(--dsw-radius-xs,4px);font-family:inherit;font-size:11px;line-height:16px;font-style:normal;font-weight:500;color:var(--dshp-ok);border:.5px solid color-mix(in srgb,var(--dshp-ok) 40%,transparent);background:color-mix(in srgb,var(--dshp-ok) 12%,transparent)}
-.dshp-editions{display:flex;flex-direction:column;margin:0;border-top:.5px solid var(--dsw-alias-border-l1,var(--dshp-line))}
-.dshp-edition{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--dsw-alias-border-l1,var(--dshp-line))}
-.dshp-edition-name{display:inline-flex;align-items:center;gap:0;font-size:14px;line-height:22px;font-weight:500;white-space:nowrap}
+.dshp-rel{margin:0 0 12px}
+.dshp-now{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 4px}
+.dshp-now-label{font-family:var(--dshp-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dshp-mute)}
+.dshp-now-ver{font-family:inherit;font-size:20px;line-height:28px;font-weight:600;letter-spacing:0}
+.dshp-now-mark{display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;border-radius:99px;font-family:var(--dshp-mono);font-size:11px;font-style:normal;font-weight:500;line-height:1.5;color:var(--dshp-ok);border:1px solid color-mix(in srgb,var(--dshp-ok) 38%,var(--dshp-line));background:color-mix(in srgb,var(--dshp-ok) 14%,var(--dshp-bg))}
+.dshp-editions{display:flex;flex-direction:column;margin:8px 0 0;border-top:1px solid var(--dshp-line)}
+.dshp-edition{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--dshp-line)}
+.dshp-edition-name{display:inline-flex;align-items:center;gap:0;font-family:inherit;font-size:16px;line-height:24px;font-weight:600;white-space:nowrap}
 .dshp-edition.is-on .dshp-edition-name{color:var(--dshp-ink)}
 .dshp-edition:not(.is-on) .dshp-edition-name{color:var(--dshp-mute)}
 .dshp-edition .dshp-btn{min-width:118px}
-.dshp-rel .dshp-notice{display:block;min-height:16px}
+.dshp-rel .dshp-notice{display:block;margin-top:8px;min-height:16px}
 @media (max-width:560px){.dshp-edition{grid-template-columns:1fr auto;grid-template-areas:"name btn" "sel sel"}.dshp-edition-name{grid-area:name}.dshp-edition .dshp-ver{grid-area:sel}.dshp-edition .dshp-btn{grid-area:btn}}
-.dshp-ask{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:10px 12px;border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-1,transparent);font-size:13px;line-height:20px}
-/* 卸载确认：设置面板本身 z-index:1000，这层遮罩必须盖在它上面，
-   否则在设置页里点「卸载」看不到确认框。 */
-.dshp-modal-bg{position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--dsw-alias-bg-mask-3,rgba(0,0,0,.48));backdrop-filter:blur(2px)}
-.dshp-modal{width:min(420px,100%);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dshp-ink);border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-xl,20px);padding:20px;box-shadow:var(--dsw-elevation-prominent,0 16px 40px rgba(0,0,0,.22))}
-.dshp-modal h4{margin:0 0 8px;font-size:16px;line-height:24px;font-weight:500}
-.dshp-modal p{margin:0 0 16px;font-size:14px;line-height:22px;color:var(--dshp-mute)}
+.dshp-area{min-height:220px;resize:vertical}
+.dshp-field:focus,.dshp-area:focus{outline:none;border-color:var(--dshp-accent);box-shadow:0 0 0 3px var(--dshp-accent-soft)}
+.dshp-field:disabled,.dshp-area:disabled{opacity:.5}
+.dshp-ask{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;line-height:20px}
+.dshp-modal-bg{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--dshp-ink) 28%,transparent)}
+.dshp-modal{width:min(420px,100%);color:var(--dshp-ink);border-radius:12px;padding:16px;box-shadow:inset 0 1px 0 var(--dshp-hi),0 16px 40px color-mix(in srgb,#000 22%,transparent)}
+.dshp-modal h4{margin:0 0 8px;font-family:inherit;font-size:18px;line-height:28px;font-weight:600}
+.dshp-modal p{margin:0 0 16px;font-size:14px;line-height:20px;text-wrap:pretty}
 .dshp-modal-ops{display:flex;justify-content:flex-end;gap:8px}
-.dshp-restart-mask{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--dsw-alias-bg-mask-3,rgba(0,0,0,.55));font-family:var(--dsw-font-family,inherit)}
-.dshp-restart-card{width:min(420px,100%);box-sizing:border-box;padding:20px;border-radius:var(--dsw-radius-xl,20px);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);border:.5px solid var(--dsw-alias-border-l3,#ddd);box-shadow:var(--dsw-elevation-prominent,0 18px 50px rgba(0,0,0,.28))}
-.dshp-restart-card h4{margin:0 0 8px;font-family:inherit;font-size:16px;line-height:24px;font-weight:500;color:inherit}
-.dshp-restart-card p{margin:0 0 16px;font-size:14px;line-height:22px;color:var(--dsw-alias-label-secondary,inherit)}
+.dshp-restart-mask{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.62);font-family:inherit}
+.dshp-restart-card{width:min(420px,100%);box-sizing:border-box;padding:16px;border-radius:16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);color:var(--dsw-alias-label-primary,#16140f);border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 42%,transparent),0 16px 40px color-mix(in srgb,#000 22%,transparent);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4)}
+.dshp-restart-card h4{margin:0 0 8px;font-family:inherit;font-size:20px;font-weight:600;line-height:28px;color:inherit}
+.dshp-restart-card p{margin:0 0 16px;font-size:16px;font-weight:500;line-height:24px;color:inherit}
 .dshp-restart-card .dshp-modal-ops{display:flex;justify-content:flex-end;gap:8px}
-.dshp-restart-card .dshp-btn{min-height:36px;padding:0 14px;font-size:14px;font-weight:400;color:var(--dsw-alias-label-primary,#111);background:transparent;border:.5px solid var(--dsw-alias-border-l3,#ccc)}
-.dshp-restart-card .dshp-btn-primary,.dshp-restart-card .dshp-btn-primary:hover:not(:disabled){color:var(--dsw-alias-label-primary-foreground,#fff);background:var(--dsw-alias-button-primary-fill,#111);border-color:transparent}
-.dshp-notice{font-size:12px;line-height:18px}
+.dshp-restart-card .dshp-btn{padding:8px 12px;font-size:16px;font-weight:600;color:var(--dsw-alias-label-primary,#16140f);background:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#fff) 40%,transparent);border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent)}
+.dshp-restart-card .dshp-btn-primary,.dshp-restart-card .dshp-btn-primary:hover:not(:disabled){color:#fff;background:var(--dsw-alias-brand-primary,#2f6b4f);border-color:var(--dsw-alias-brand-primary,#2f6b4f)}
+body[data-ds-dark-theme] .dshp-restart-card,.dshp-restart-mask[data-theme="dusk"] .dshp-restart-card{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);color:#f4f1ea;border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent),0 16px 40px color-mix(in srgb,#000 28%,transparent)}
+body[data-ds-dark-theme] .dshp-restart-card .dshp-btn,.dshp-restart-mask[data-theme="dusk"] .dshp-restart-card .dshp-btn{color:#f4f1ea;background:color-mix(in srgb,#1c1e24 42%,transparent);border-color:color-mix(in srgb,#6dbf8c 32%,transparent)}
+body[data-ds-dark-theme] .dshp-restart-card .dshp-btn-primary,body[data-ds-dark-theme] .dshp-restart-card .dshp-btn-primary:hover:not(:disabled),.dshp-restart-mask[data-theme="dusk"] .dshp-restart-card .dshp-btn-primary,.dshp-restart-mask[data-theme="dusk"] .dshp-restart-card .dshp-btn-primary:hover:not(:disabled){color:#fff;background:#3d8f68;border-color:#3d8f68}
+.dshp-notice{font-size:12px;line-height:16px}
 .dshp-notice.is-ok{color:var(--dshp-ok)}
 .dshp-notice.is-bad{color:var(--dshp-bad)}
-.dshp-skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--dshp-fill),var(--dshp-line),var(--dshp-fill));background-size:200% 100%;animation:dshp-pulse 1.2s ease-in-out infinite}
-.dshp-skel-rows{display:flex;flex-direction:column;gap:10px;padding:14px 0 4px}
-.dshp-skel-rows .dshp-skel{height:10px;border-radius:5px}
-.dshp-skel-rows .dshp-skel:nth-child(1){width:38%}
-.dshp-skel-rows .dshp-skel:nth-child(2){width:52%}
-.dshp-skel-rows .dshp-skel:nth-child(3){width:29%}
-/* ── 设置页（1.3.0 主入口）───────────────────────────────────────────────
-   与官方设置页同构：标题 16/24、说明 14/22 tertiary、段间 16。
-   分段控件用官方 toolbar 的写法（ghost 底 + 选中层一），不要 capsule 药丸。 */
-/* 官方 .options 只有左右/下 padding，顶部留白由各 section 自己给（模型页靠首行说明）。
-   这里补 8px，避免标题贴住设置外壳的 header 发丝线。 */
-.dshp-page{max-width:720px;gap:16px;padding-top:8px}
-.dshp-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.dshp-page-text{display:flex;flex-direction:column;gap:4px;min-width:0}
-.dshp-page-lead{margin:0;font-size:14px;line-height:22px;color:var(--dsw-alias-label-tertiary,var(--dshp-mute));max-width:52ch}
-.dshp-segbar{display:inline-flex;align-items:center;gap:2px;padding:2px;border:.5px solid var(--dsw-alias-border-l3,var(--dshp-line));border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-button-ghost-active-fill,var(--dshp-fill));flex:none}
-.dshp-seg{appearance:none;border:0;background:transparent;color:var(--dsw-alias-label-secondary,var(--dshp-mute));font:inherit;font-size:13px;line-height:20px;padding:4px 12px;border-radius:calc(var(--dsw-radius-md,12px) - 2px);cursor:pointer;white-space:nowrap;transition:background .15s var(--dshp-ease),color .15s var(--dshp-ease)}
-.dshp-seg:hover{color:var(--dsw-alias-label-primary,var(--dshp-ink))}
-.dshp-seg.on{background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));color:var(--dsw-alias-label-primary,var(--dshp-ink));box-shadow:0 1px 2px color-mix(in srgb,#000 12%,transparent)}
-.dshp-seg:focus-visible{outline:2px solid var(--dshp-accent);outline-offset:1px}
-@media (max-width:620px){.dshp-page-head{flex-direction:column;align-items:stretch}.dshp-segbar{align-self:flex-start}}
-.dshp-active{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin:0;border:.5px solid var(--dshp-line);background:var(--dsw-alias-bg-layer-1,transparent);border-radius:var(--dsw-radius-md,12px)}
-.dshp-active b{font-family:inherit;font-weight:500}
-.dshp-empty{padding:28px 12px;font-size:13px;line-height:20px;color:var(--dshp-mute);text-align:center}
+.dshp-skel{height:12px;border-radius:4px;background:var(--dshp-fill);animation:dshp-pulse 1.2s var(--dshp-ease) infinite}
+.dshp-active{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;margin-bottom:12px;border-radius:8px}
+.dshp-active b{font-family:inherit;font-weight:600}
+.dshp-empty{padding:24px 12px;font-size:13px;color:var(--dshp-mute);text-align:center}
 .dshp-split{display:flex;flex-direction:column;gap:12px}
-.dshp-rulelist{display:flex;flex-direction:column;border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-1,transparent);overflow:hidden}
+.dshp-rulelist{display:flex;flex-direction:column;border-radius:8px;overflow:hidden}
 .dshp-rulebody{max-height:240px;overflow:auto}
-.dshp-ruleitem{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:0;border-bottom:.5px solid var(--dsw-alias-border-l1,var(--dshp-line));background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.dshp-ruleitem{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:0;border-bottom:1px solid var(--dshp-line);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dshp-ruleitem:hover{background:var(--dshp-fill)}
 .dshp-ruleitem.is-edit{background:var(--dshp-accent-soft)}
 .dshp-rule-main{flex:1;min-width:0}
-.dshp-rulename,.dshp-rule-name{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;line-height:22px}
-.dshp-rule-meta{display:block;margin-top:2px;font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dshp-mute)}
+.dshp-rule-name{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600}
+.dshp-rule-meta{display:block;margin-top:3px;font-family:var(--dshp-mono);font-size:11px;color:var(--dshp-mute)}
 .dshp-rule-ops{display:flex;flex-direction:row;align-items:center;gap:6px;flex-shrink:0}
-.dshp-create{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:.5px solid var(--dshp-line);background:transparent}
+.dshp-create{display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--dshp-line)}
 .dshp-create-row{display:flex;gap:6px;align-items:center}
 .dshp-create .dshp-field{flex:1;min-width:0;width:auto}
-.dshp-editor{display:flex;flex-direction:column;gap:10px;min-width:0;border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-1,transparent);padding:12px;min-height:320px}
+.dshp-editor{display:flex;flex-direction:column;gap:12px;min-width:0;border-radius:8px;padding:12px;min-height:320px}
 .dshp-editor .dshp-area{flex:1;min-height:240px}
-.dshp-editor-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dshp-mute);font-size:13px;line-height:20px;min-height:160px}
-.dshp-block{padding:14px 0;border-top:.5px solid var(--dshp-line)}
-.dshp-block-head{display:flex;align-items:center;gap:10px;margin:0 0 8px}
-.dshp-block-head h4{margin:0;font-family:inherit;font-size:14px;line-height:22px;font-weight:500;flex:1;color:var(--dshp-ink)}
-.dshp-block-hint{margin:6px 0 0;font-size:12px;line-height:18px;color:var(--dshp-mute)}
-.dshp-policy-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.dshp-policy-row>label{font-size:12px;line-height:18px;color:var(--dshp-mute);flex:0 0 auto}
-.dshp-cwd-path{margin:0 0 8px;font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dshp-mute);word-break:break-all}
-.dshp-cwd-list{display:flex;flex-direction:column;border:.5px solid var(--dshp-line);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-1,transparent);overflow:hidden}
-.dshp-cwd-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1,var(--dshp-line));cursor:pointer;margin:0}
+.dshp-editor-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dshp-mute);font-size:13px;min-height:160px}
+.dshp-block{padding:16px 0;border-top:1px solid var(--dshp-line)}
+.dshp-block-head{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.dshp-block-head h4{margin:0;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;flex:1;color:var(--dshp-ink)}
+.dshp-block-hint{margin:8px 0 0;font-size:12px;line-height:1.55;color:var(--dshp-mute)}
+.dshp-policy-row{display:flex;align-items:center;gap:8px}
+.dshp-policy-row>label{font-size:12px;color:var(--dshp-mute);flex:0 0 auto}
+.dshp-cwd-path{margin:0 0 8px;font-family:var(--dshp-mono);font-size:11px;color:var(--dshp-mute);word-break:break-all;line-height:1.5}
+.dshp-cwd-list{display:flex;flex-direction:column;border-radius:8px;overflow:hidden}
+.dshp-cwd-item{display:flex;align-items:flex-start;gap:8px;padding:12px;border-bottom:1px solid var(--dshp-line);cursor:pointer;margin:0}
 .dshp-cwd-item:last-child{border-bottom:0}
 .dshp-cwd-item:hover{background:var(--dshp-fill)}
 .dshp-cwd-item.is-on{background:var(--dshp-accent-soft)}
-.dshp-cwd-item input{margin:3px 0 0;flex:0 0 auto;accent-color:var(--dshp-accent)}
+.dshp-cwd-item input{margin:3px 0 0;flex:0 0 auto}
 .dshp-cwd-main{flex:1;min-width:0}
-.dshp-cwd-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:inherit;font-size:13px;line-height:20px;color:var(--dshp-ink)}
-.dshp-cwd-badge{font-family:inherit;font-size:11px;line-height:16px;padding:0 6px;border-radius:var(--dsw-radius-xs,4px);border:.5px solid var(--dsw-alias-border-l3,var(--dshp-line));color:var(--dshp-mute)}
-.dshp-cwd-size{font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dshp-mute)}
-.dshp-cwd-sub{margin-top:2px;font-family:var(--dshp-mono);font-size:11px;line-height:16px;color:var(--dshp-mute);word-break:break-all}
-.dshp-cwd-prev{margin-top:4px;font-size:11px;line-height:16px;color:var(--dshp-mute);max-height:34px;overflow:hidden}
-@keyframes dshp-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.dshp-cwd-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;color:var(--dshp-ink)}
+.dshp-cwd-badge{font-family:var(--dshp-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:1px 7px;border-radius:99px;border:1px solid var(--dshp-line);color:var(--dshp-mute);line-height:1.6}
+.dshp-cwd-size{font-family:var(--dshp-mono);font-size:11px;color:var(--dshp-mute)}
+.dshp-cwd-sub{margin-top:3px;font-family:var(--dshp-mono);font-size:11px;color:var(--dshp-mute);word-break:break-all}
+.dshp-cwd-prev{margin-top:4px;font-size:11px;line-height:1.5;color:var(--dshp-mute);max-height:34px;overflow:hidden}
+@keyframes dshp-pulse{0%,100%{opacity:.4}50%{opacity:1}}
 @media (max-width:640px){.dshp-metrics{grid-template-columns:1fr}.dshp-ruleitem{flex-wrap:wrap}.dshp-rule-ops{width:100%;justify-content:flex-end}}
-@media (prefers-reduced-motion:reduce){.dshp-btn,.dshp-bar>i{transition:none}.dshp-skel{animation:none}}
+.dshp-root em,.dshp-dock em,.rt-flow-action.inferred,.rt-ap-act.inferred{font-style:normal}
+@media (prefers-reduced-motion:reduce){.dshp-btn,.dshp-bar>i,.dshp-flow-node{transition:opacity 300ms var(--dshp-ease)}.dshp-btn:hover:not(:disabled),.dshp-flow-node.is-cur{transform:none}.dshp-skel{animation:none}}
 
-/* ── 快捷面板（对话内浮窗）────────────────────────────────────────────────
-   跟设置页同一套 token：不透明层一底 + 0.5px 描边 + xl 圆角 + 官方抬升阴影。
-   不再做绿玻璃渐变和衬线标题。 */
-.dshp-dock{position:fixed;top:12px;right:12px;z-index:10050;display:flex;flex-direction:column;width:var(--dshp-dock-w,620px);height:var(--dshp-dock-h,72vh);min-width:380px;min-height:320px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l3,#d5d5d5);border-radius:var(--dsw-radius-xl,20px);box-shadow:var(--dsw-elevation-prominent,0 18px 48px rgba(0,0,0,.24));pointer-events:auto;color:var(--dsw-alias-label-primary,#111);overflow:visible;font-family:var(--dsw-font-family,inherit);font-size:14px;line-height:22px}
+.dshp-dock{position:fixed;top:12px;right:12px;z-index:10050;display:flex;flex-direction:column;width:var(--dshp-dock-w,620px);height:var(--dshp-dock-h,72vh);min-width:380px;min-height:320px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);box-sizing:border-box;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,var(--dshp-paper,#fffcf7)) 52%,transparent);backdrop-filter:blur(22px) saturate(1.35);-webkit-backdrop-filter:blur(22px) saturate(1.35);border:1px solid color-mix(in srgb,var(--dsw-alias-border-l1,var(--dshp-line,#555)) 65%,transparent);border-radius:12px;box-shadow:0 18px 48px color-mix(in srgb,#000 30%,transparent),0 0 0 1px color-mix(in srgb,#fff 6%,transparent);pointer-events:auto;color:var(--dsw-alias-label-primary,var(--dshp-ink,#f2f2f2));overflow:visible}
 .dshp-dock[data-open="0"]{display:none}
-.dshp-launch{position:fixed;right:16px;bottom:16px;z-index:10040;appearance:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:.5px solid var(--dsw-alias-border-l3,#d0d0d0);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);cursor:pointer;font:inherit;font-size:13px;line-height:20px;box-shadow:0 6px 18px color-mix(in srgb,#000 14%,transparent);pointer-events:auto}
-.dshp-launch:hover{background:var(--dsw-alias-interactive-bg-hover-solid,color-mix(in srgb,currentColor 8%,transparent))}
-.dshp-launch[data-open="1"]{display:none}
-.dshp-dock-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1,#eee);background:transparent;cursor:grab;user-select:none;touch-action:none;color:var(--dsw-alias-label-primary,#111);border-radius:var(--dsw-radius-xl,20px) var(--dsw-radius-xl,20px) 0 0}
+.dshp-launch{position:fixed;right:16px;bottom:16px;z-index:10040;appearance:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 55%,transparent);border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);color:var(--dsw-alias-label-primary,#16140f);cursor:pointer;font:13px/1 inherit;box-shadow:0 8px 22px color-mix(in srgb,#000 28%,transparent);pointer-events:auto}
+.dshp-launch:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent)}
+.dshp-launch[data-open="1"],.dshp-launch[data-hide="1"]{display:none}
+.dshp-dock-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid color-mix(in srgb,var(--dsw-alias-border-l1,var(--dshp-line,#555)) 55%,transparent);background:transparent;cursor:grab;user-select:none;touch-action:none;color:var(--dsw-alias-label-primary,var(--dshp-ink,#f2f2f2));border-radius:12px 12px 0 0}
 .dshp-dock-head:active{cursor:grabbing}
-.dshp-dock-head b{font-size:14px;line-height:22px;font-weight:500;color:inherit}
-.dshp-dock-head button{cursor:pointer;color:inherit;background:transparent;border:.5px solid var(--dsw-alias-border-l3,#d5d5d5);border-radius:var(--dsw-radius-sm,8px);padding:3px 10px;font:inherit;font-size:12px;line-height:18px}
-.dshp-dock-head button:hover{background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 8%,transparent))}
-.dshp-dock-tabs{display:flex;gap:2px;padding:6px 10px 0;border-bottom:.5px solid var(--dsw-alias-border-l1,#eee);background:transparent}
-.dshp-dock-tab{appearance:none;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary,#666);border-radius:0;padding:6px 10px;margin-bottom:-1px;cursor:pointer;font:inherit;font-size:13px;line-height:20px}
-.dshp-dock-tab:hover{color:var(--dsw-alias-label-primary,#111)}
-.dshp-dock-tab.on{color:var(--dsw-alias-label-primary,#111);font-weight:500;border-bottom-color:var(--dsw-alias-label-primary,#111);background:transparent}
-.dshp-dock-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:transparent;border-radius:0 0 var(--dsw-radius-xl,20px) var(--dsw-radius-xl,20px)}
-.dshp-dock-body .dshp-root{max-width:none;height:100%;flex:1;min-height:0;overflow:auto;background:transparent!important;padding:12px 14px;--dshp-paper:var(--dsw-alias-bg-layer-2,color-mix(in srgb,currentColor 4%,transparent));--dshp-fill:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));--dshp-line:var(--dsw-alias-border-l2,color-mix(in srgb,currentColor 14%,transparent));--dshp-accent-soft:color-mix(in srgb,var(--dshp-accent) 14%,transparent)}
-.dshp-dock-body .dshp-panel,.dshp-dock-body .dshp-metric,.dshp-dock-body .dshp-group,.dshp-dock-body .dshp-editor,.dshp-dock-body .dshp-active,.dshp-dock-body .dshp-ask,.dshp-dock-body .dshp-create,.dshp-dock-body .dshp-rulelist,.dshp-dock-body .dshp-table,.dshp-dock-body .dshp-ruleitem,.dshp-dock-body .dshp-cwd-list,.dshp-dock-body .dshp-cwd-item{background:transparent!important;border-color:var(--dsw-alias-border-l1,#ececec)!important;color:var(--dshp-ink)!important;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
-.dshp-dock-body .dshp-panel,.dshp-dock-body .dshp-editor,.dshp-dock-body .dshp-rulelist,.dshp-dock-body .dshp-cwd-list{background:var(--dsw-alias-bg-layer-2,#fafafa)!important}
-.dshp-dock-body .dshp-field,.dshp-dock-body .dshp-area{background:var(--dsw-alias-bg-layer-1,#fff)!important;color:var(--dshp-ink)!important;border-color:var(--dsw-alias-border-l4,#d0d0d0)!important}
+.dshp-dock-head b{font-size:14px;font-weight:600;color:inherit;text-shadow:0 1px 0 color-mix(in srgb,#000 18%,transparent)}
+.dshp-dock-head button{cursor:pointer;color:inherit;background:color-mix(in srgb,var(--dsw-alias-bg-layer-2,rgba(127,127,127,.18)) 55%,transparent)}
+.dshp-dock-tabs{display:flex;gap:8px;padding:0 12px;border-bottom:1px solid color-mix(in srgb,var(--dsw-alias-border-l1,var(--dshp-line,#555)) 55%,transparent);background:transparent}
+.dshp-dock-tab{appearance:none;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary,var(--dshp-mute,#b8b4ac));border-radius:0;padding:8px 12px;margin-bottom:-1px;cursor:pointer;font:13px/1.2 inherit;text-shadow:0 1px 0 color-mix(in srgb,#000 12%,transparent)}
+.dshp-dock-tab:hover{color:var(--dsw-alias-label-primary,var(--dshp-ink,#f2f2f2))}
+.dshp-dock-tab.on{color:var(--dsw-alias-label-primary,var(--dshp-ink,#f2f2f2));font-weight:600;border-bottom-color:var(--dsw-alias-brand-primary,#6dbf8c);background:transparent}
+.dshp-dock-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:transparent;border-radius:0 0 12px 12px}
+.dshp-dock-body .dshp-root{max-width:none;height:100%;flex:1;min-height:0;overflow:auto;background:transparent!important;padding:12px;gap:12px}
+.dshp-dock-body .dshp-panel{padding:12px}
+.dshp-dock-body .dshp-head{margin-bottom:12px}
+.dshp-dock-body .dshp-sub{margin:16px 0 8px}
+.dshp-dock-body .dshp-metrics{margin-bottom:12px}
+.dshp-dock-body .dshp-panel,.dshp-dock-body .dshp-metric,.dshp-dock-body .dshp-group,.dshp-dock-body .dshp-editor,.dshp-dock-body .dshp-active,.dshp-dock-body .dshp-ask,.dshp-dock-body .dshp-create,.dshp-dock-body .dshp-rulelist,.dshp-dock-body .dshp-cwd-list{background:var(--dshp-paper)!important;border-color:var(--dshp-line)!important;color:var(--dshp-ink)!important;box-shadow:inset 0 1px 0 var(--dshp-hi);backdrop-filter:var(--dshp-glass);-webkit-backdrop-filter:var(--dshp-glass)}
+.dshp-dock-body .dshp-field,.dshp-dock-body .dshp-area{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 38%,transparent)!important;color:var(--dshp-ink)!important;border-color:var(--dshp-line)!important}
 .dshp-dock-body select.dshp-field,.dshp-dock-body .dshp-field.dshp-ver{background:var(--dsw-alias-bg-layer-1,#fff)!important;color:var(--dshp-ink)!important;color-scheme:inherit}
-.dshp-dock-body .dshp-title,.dshp-dock-body .dshp-sub h4,.dshp-dock-body .dshp-group-h strong,.dshp-dock-body .dshp-metric b,.dshp-dock-body .dshp-rule-name{font-family:inherit;font-weight:500;letter-spacing:0;color:var(--dshp-ink)!important;text-shadow:none}
-.dshp-dock-body .dshp-mute,.dshp-dock-body .dshp-kicker,.dshp-dock-body .dshp-metric span,.dshp-dock-body .dshp-group-h em,.dshp-dock-body .dshp-count,.dshp-dock-body .dshp-rule-meta,.dshp-dock-body .dshp-hint{color:var(--dshp-mute)!important;font-weight:400;text-shadow:none}
+.dshp-dock[data-theme="white"] select.dshp-field option,.dshp-dock[data-theme="white"] .dshp-field.dshp-ver option{background:#fff;color:#16140f}
+.dshp-dock[data-theme="dusk"] select.dshp-field option,.dshp-dock[data-theme="dusk"] .dshp-field.dshp-ver option{background:#1b1d22;color:#f4f1ea}
+.dshp-dock-body .dshp-title,.dshp-dock-body .dshp-sub h4,.dshp-dock-body .dshp-group-h strong,.dshp-dock-body .dshp-metric b,.dshp-dock-body .dshp-rule-name{font-family:inherit;font-weight:650;letter-spacing:0;color:var(--dshp-ink)!important;text-shadow:none}
+.dshp-dock-body .dshp-mute,.dshp-dock-body .dshp-kicker,.dshp-dock-body .dshp-metric span,.dshp-dock-body .dshp-group-h em,.dshp-dock-body .dshp-count,.dshp-dock-body .dshp-rule-meta,.dshp-dock-body .dshp-hint{color:var(--dshp-mute)!important;font-weight:500;text-shadow:none}
 .dshp-dock-body .rt-dock{position:relative;inset:auto;width:100%!important;height:100%;max-width:none!important;flex:1;min-height:0;min-width:0;display:flex!important;flex-direction:column;box-shadow:none;border:0;transform:none!important;opacity:1!important;pointer-events:auto!important;background:transparent!important}
 .dshp-dock-body .rt-grip{display:none!important}
 .dshp-dock-body .rt-embedded>.rt-head,.dshp-dock-body .rt-tabs,.dshp-dock-body .rt-foot{flex:none}
@@ -1108,70 +1041,110 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 .dshp-dock-body .rt-pane{min-height:0;overflow:auto!important}
 .dshp-dock-body .rt-embedded>.rt-head{padding:8px 12px}
 .dshp-dock-body .rt-embedded>.rt-head .rt-title{font-size:14px;letter-spacing:0}
-.dshp-dock-body .rt-tabs{gap:2px;padding:6px 10px 0;flex-wrap:wrap}
-.dshp-dock-body .rt-tab{border-radius:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:6px 9px;background:transparent;font-size:13px}
-.dshp-dock-body .rt-tab.on{border-bottom-color:var(--dsw-alias-label-primary,#111);background:transparent;font-weight:500}
+.dshp-dock-body .rt-tabs{gap:8px;padding:0 12px;flex-wrap:wrap}
+.dshp-dock-body .rt-tab{border-radius:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 12px;background:transparent;font-size:14px}
+.dshp-dock-body .rt-tab.on{border-bottom-color:var(--dsw-alias-brand-primary,#6d8f78);background:transparent;font-weight:650}
 .dshp-dock-body .rt-row:hover,.dshp-dock-body .rt-item:hover,.dshp-dock-body .rt-item.on,.dshp-dock-body .rt-seg:hover,.dshp-dock-body .rt-seg.on,.dshp-dock-body .rt-vrow:hover,.dshp-dock-body .rt-score-row:hover{background:var(--rt-surf-2)!important}
-body:not([data-ds-dark-theme]) .dshp-auth-modal{background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);border-color:var(--dsw-alias-border-l3,#ddd)}
-body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-layer-2,#fafafa);color:var(--dsw-alias-label-primary,#111);border-color:var(--dsw-alias-border-l3,#ddd)}
+body:not([data-ds-dark-theme]) .dshp-auth-modal{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);color:var(--dsw-alias-label-primary,#1a1916);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 48%,transparent)}
+body:not([data-ds-dark-theme]) .dshp-auth-legal{background:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#f3f0e8) 90%,transparent);color:var(--dsw-alias-label-primary,#1a1916);border-color:color-mix(in srgb,var(--dsw-alias-border-l1,#c9c3b6) 80%,transparent)}
+body:not([data-ds-dark-theme]) .dshp-auth-warn{background:color-mix(in srgb,#f5e6c8 88%,transparent);color:#6b4a10}
+body:not([data-ds-dark-theme]) .dshp-auth-ops button{border-color:var(--dsw-alias-border-l1,#c9c3b6);color:var(--dsw-alias-label-primary,#1a1916);background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 88%,transparent)}
+body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--dsw-alias-brand-primary,#3f6b52);border-color:var(--dsw-alias-brand-primary,#3f6b52);color:#fff}
 .dshp-dock-resize,.dshp-dock-resize-l,.dshp-dock-resize-r,.dshp-dock-resize-b{position:absolute;z-index:60;pointer-events:auto;touch-action:none}
-.dshp-dock-resize{right:0;bottom:0;width:20px;height:20px;cursor:nwse-resize;border-radius:0 0 var(--dsw-radius-xl,20px) 0;background:linear-gradient(135deg,transparent 50%,var(--dsw-alias-border-l4,#c8c8c8) 50%);opacity:.9}
-.dshp-dock-resize-l{left:-2px;top:0;bottom:0;width:10px;cursor:ew-resize;background:transparent}
-.dshp-dock-resize-l:hover,.dshp-dock-resize-r:hover{background:color-mix(in srgb,currentColor 10%,transparent)}
-.dshp-dock-resize-r{right:-2px;top:0;bottom:20px;width:10px;cursor:ew-resize;background:transparent}
-.dshp-dock-resize-b{left:10px;right:20px;bottom:-2px;height:10px;cursor:ns-resize;background:transparent}
-.dshp-dock-resize-b:hover{background:color-mix(in srgb,currentColor 10%,transparent)}
-.dshp-auth-mask{position:fixed;inset:0;z-index:10100;background:var(--dsw-alias-bg-mask-3,rgba(0,0,0,.5));display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:auto;backdrop-filter:blur(2px)}
+.dshp-dock-resize{right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 46%,color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 75%,transparent) 46%);border-radius:0 0 12px 0;opacity:.95}
+.dshp-dock-resize-l{left:-2px;top:0;bottom:0;width:10px;cursor:ew-resize;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent)}
+.dshp-dock-resize-l:hover,.dshp-dock-resize-r:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 42%,transparent)}
+.dshp-dock-resize-r{right:-2px;top:0;bottom:22px;width:10px;cursor:ew-resize;background:transparent}
+.dshp-dock-resize-b{left:10px;right:22px;bottom:-2px;height:10px;cursor:ns-resize;background:transparent}
+.dshp-dock-resize-b:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 35%,transparent)}
+.dshp-auth-mask{position:fixed;inset:0;z-index:10100;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:auto}
 .dshp-env-gate{z-index:10200}
-.dshp-auth-modal{width:min(640px,100%);max-height:min(88vh,820px);display:flex;flex-direction:column;gap:10px;padding:20px;border:.5px solid var(--dsw-alias-border-l3,#ddd);border-radius:var(--dsw-radius-xl,20px);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#111);box-shadow:var(--dsw-elevation-prominent,0 18px 48px rgba(0,0,0,.24));font-family:var(--dsw-font-family,inherit)}
-.dshp-auth-modal h2{margin:0;font-size:16px;line-height:24px;font-weight:500}
-.dshp-auth-warn{padding:8px 10px;border-radius:var(--dsw-radius-sm,8px);background:var(--dsw-alias-state-warn-tertiary,#fef5e7);color:var(--dsw-alias-state-warn-label,#8a5a12);font-size:13px;line-height:20px}
-.dshp-auth-legal{overflow:auto;height:280px;margin:0;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l3,#ddd);border-radius:var(--dsw-radius-md,12px);background:var(--dsw-alias-bg-layer-2,#fafafa);font-size:13px;line-height:20px}
-.dshp-auth-legal h3{margin:12px 0 4px;font-size:13px;line-height:20px;font-weight:500}
+.dshp-auth-modal{width:min(680px,100%);max-height:min(88vh,820px);display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);border-radius:16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);color:var(--dsw-alias-label-primary,#eee);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent)}
+.dshp-auth-modal h2{margin:0;font-size:16px;font-weight:600}
+.dshp-auth-warn{padding:8px 10px;border-radius:8px;background:#3a2e18;color:#f0d48a;font-size:13px}
+.dshp-auth-legal{overflow:auto;height:300px;margin:0;padding:12px;border:1px solid var(--dshp-line,var(--dsw-alias-border-l1,#333));border-radius:8px;background:var(--dshp-paper,color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent));font-size:13px;line-height:1.55}
+.dshp-auth-legal h3{margin:12px 0 4px;font-size:13px}
 .dshp-auth-legal h3:first-child{margin-top:0}
 .dshp-auth-legal p{margin:0 0 8px}
-.dshp-auth-checks{display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:20px}
-.dshp-auth-checks label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
-.dshp-auth-checks input{accent-color:var(--dsw-alias-state-business-primary,#4176e6);margin-top:3px}
-.dshp-auth-checks label.locked{opacity:.45;cursor:default}
+.dshp-auth-checks{display:flex;flex-direction:column;gap:8px;font-size:13px}
+.dshp-auth-checks label{display:flex;gap:8px;align-items:flex-start}
+.dshp-auth-checks label.locked{opacity:.45}
 .dshp-auth-ops{display:flex;justify-content:flex-end;gap:8px}
-.dshp-auth-ops button{appearance:none;border:.5px solid var(--dsw-alias-border-l3,#d0d0d0);background:transparent;color:inherit;border-radius:var(--dsw-radius-md,12px);padding:0 14px;height:36px;cursor:pointer;font:inherit;font-size:14px;line-height:22px}
-.dshp-auth-ops button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-solid,color-mix(in srgb,currentColor 8%,transparent))}
-.dshp-auth-ops button.primary{background:var(--dsw-alias-button-primary-fill,#111);border-color:transparent;color:var(--dsw-alias-label-primary-foreground,#fff)}
-.dshp-auth-ops button.primary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover,#333)}
+.dshp-auth-ops button,.dshp-dock-head button{appearance:none;border:1px solid var(--dsw-alias-border-l1,#444);background:transparent;color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+.dshp-auth-ops button.primary{background:#2a4033;border-color:#8fbf9a}
 .dshp-auth-ops button:disabled{opacity:.45;cursor:default}
-.dshp-icon-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l3,#d0d0d0);border-radius:var(--dsw-radius-md,12px);background:transparent;color:var(--dsw-alias-label-secondary,currentColor);cursor:pointer;font:inherit;font-size:13px;line-height:20px;white-space:nowrap;flex:0 0 auto}
-.dshp-icon-btn:hover{border-color:var(--dsw-alias-label-tertiary,#999);background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));color:var(--dsw-alias-label-primary,currentColor)}
-.dshp-icon-btn.on{border-color:var(--dsw-alias-label-primary,currentColor);color:var(--dsw-alias-label-primary,currentColor);background:var(--dsw-alias-interactive-bg-active,color-mix(in srgb,currentColor 10%,transparent))}
-.dshp-hbtn{appearance:none;display:inline-flex;flex:0 0 auto;align-items:center;gap:6px;border:.5px solid var(--dsw-alias-border-l3,#d0d0d0);background:transparent;color:var(--dsw-alias-label-secondary,currentColor);cursor:pointer;font:inherit;font-size:12px;line-height:18px;padding:3px 10px;border-radius:var(--dsw-radius-sm,8px);white-space:nowrap}
-.dshp-hbtn:hover{border-color:var(--dsw-alias-label-tertiary,#999);background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));color:var(--dsw-alias-label-primary,currentColor)}
-.dshp-hbtn.on{border-color:var(--dsw-alias-label-primary,currentColor);color:var(--dsw-alias-label-primary,currentColor);background:var(--dsw-alias-interactive-bg-active,color-mix(in srgb,currentColor 10%,transparent))}
-.dshp-live-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--dsw-alias-state-success-primary,#22c55e);box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 26%,transparent)}
+.dshp-icon-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 45%,transparent);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,currentColor);cursor:pointer;font:13px/1 inherit;white-space:nowrap;flex:0 0 auto}
+.dshp-icon-btn:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 12%,transparent);color:var(--dsw-alias-label-primary,currentColor)}
+.dshp-icon-btn.on{border-color:var(--dsw-alias-brand-primary,#6dbf8c);color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 16%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 28%,transparent)}
+.dshp-hbtn{appearance:none;display:inline-flex;flex:0 0 auto;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 55%,transparent);background:transparent;color:var(--dsw-alias-label-secondary,currentColor);cursor:pointer;font:12px/1 inherit;padding:5px 10px;border-radius:8px;white-space:nowrap}
+.dshp-hbtn:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 12%,transparent);color:var(--dsw-alias-label-primary,currentColor)}
+.dshp-hbtn.on{border-color:var(--dsw-alias-brand-primary,#6dbf8c);color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent)}
+.dshp-live-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dsw-alias-brand-primary,#6dbf8c);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 28%,transparent)}
 .dshp-hero-chip{display:inline-flex;align-items:center;margin-left:6px;flex:0 0 auto}
-.dshp-hero-chip-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l3,#d0d0d0);border-radius:var(--dsw-radius-sm,8px);background:transparent;color:var(--dsw-alias-label-secondary,currentColor);cursor:pointer;font:inherit;font-size:12px;line-height:18px;white-space:nowrap}
-.dshp-hero-chip-btn:hover{border-color:var(--dsw-alias-label-tertiary,#999);background:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));color:var(--dsw-alias-label-primary,currentColor)}
-.dshp-hero-chip-btn.on{border-color:var(--dsw-alias-label-primary,currentColor);color:var(--dsw-alias-label-primary,currentColor);background:var(--dsw-alias-interactive-bg-active,color-mix(in srgb,currentColor 10%,transparent))}
+.dshp-hero-chip-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 50%,transparent);border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 10%,transparent);color:var(--dsw-alias-label-primary,currentColor);cursor:pointer;font:12.5px/1 inherit;white-space:nowrap}
+.dshp-hero-chip-btn:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent)}
+.dshp-hero-chip-btn.on{border-color:var(--dsw-alias-brand-primary,#6dbf8c);color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent)}
 .dshp-tab-chip{display:inline-flex;align-items:flex-end;flex:0 0 auto}
-.dshp-tab-btn{appearance:none;position:relative;border:none;background:transparent;cursor:pointer;padding:0 0 9px;font:inherit;font-size:13px;font-weight:500;line-height:16px;color:var(--dsw-alias-label-tertiary,currentColor);white-space:nowrap}
+.dshp-tab-btn{appearance:none;position:relative;border:none;background:transparent;cursor:pointer;padding:0 0 9px;font:500 13px/16px inherit;color:var(--dsw-alias-label-tertiary,currentColor);white-space:nowrap}
 .dshp-tab-btn:hover{color:var(--dsw-alias-label-primary,currentColor)}
-.dshp-tab-btn.on{color:var(--dsw-alias-label-primary,currentColor)}
-.dshp-tab-btn.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--dsw-alias-label-primary,currentColor)}
-.dshp-dock[data-theme="dusk"]{--dshp-ink:var(--dsw-alias-label-primary,#f9fafb);--dshp-mute:var(--dsw-alias-label-secondary,#cfd3d6)}
-.dshp-dock[data-theme="white"]{--dshp-ink:var(--dsw-alias-label-primary,#0f1115);--dshp-mute:var(--dsw-alias-label-secondary,#61666b)}
+.dshp-tab-btn.on{color:var(--dsw-alias-brand-primary,#6dbf8c)}
+.dshp-tab-btn.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--dsw-alias-brand-primary,#6dbf8c)}
+/* 宿主工具条按钮常继承图标字体 / font-size:0 / color:transparent，字在 DOM 里但看不见（#169）。 */
+.dshp-hero-chip-btn,.dshp-tab-btn,.dshp-launch,.dshp-icon-btn,.dshp-hbtn,.dshp-btn,.dshp-dock-tab,.dshp-dock-head button,.dshp-auth-ops button,.dshp-switch button{
+  font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif!important;
+  -webkit-text-fill-color:currentColor!important;
+  text-indent:0!important;
+  letter-spacing:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  width:auto!important;
+  max-width:none!important;
+}
+.dshp-hero-chip-btn{
+  font-size:12.5px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  color:#1a1916!important;
+  -webkit-text-fill-color:#1a1916!important;
+  min-width:max-content!important;
+  height:28px!important;
+  padding:0 12px!important;
+}
+.dshp-hero-chip-btn.on{color:#2f6b4f!important;-webkit-text-fill-color:#2f6b4f!important}
+body[data-ds-dark-theme] .dshp-hero-chip-btn,.dshp-dock[data-theme="dusk"] .dshp-hero-chip-btn{color:#f4f1ea!important;-webkit-text-fill-color:#f4f1ea!important}
+body[data-ds-dark-theme] .dshp-hero-chip-btn.on,.dshp-dock[data-theme="dusk"] .dshp-hero-chip-btn.on{color:#6dbf8c!important;-webkit-text-fill-color:#6dbf8c!important}
+.dshp-tab-btn{font-size:13px!important;line-height:16px!important;font-weight:500!important;color:#5c564c!important;-webkit-text-fill-color:#5c564c!important;padding:0 4px 9px!important}
+.dshp-tab-btn.on{color:#2f6b4f!important;-webkit-text-fill-color:#2f6b4f!important}
+body[data-ds-dark-theme] .dshp-tab-btn{color:#c9c3b8!important;-webkit-text-fill-color:#c9c3b8!important}
+body[data-ds-dark-theme] .dshp-tab-btn.on{color:#6dbf8c!important;-webkit-text-fill-color:#6dbf8c!important}
+.dshp-launch{font-size:13px!important;line-height:1!important;font-weight:600!important;min-width:max-content!important}
+.dshp-btn{font-size:16px!important;line-height:24px!important;font-weight:600!important}
+.dshp-btn-primary{color:#fff!important;-webkit-text-fill-color:#fff!important}
+.dshp-btn-tiny{font-size:14px!important;line-height:20px!important}
+/* Glass follows the host color. Weight and background opacity are kept separate: the shell is translucent, the text sits on a more solid layer. */
+.dshp-dock{font-family:inherit;font-size:14px;line-height:1.6;font-weight:500;-webkit-font-smoothing:antialiased;text-shadow:none}
+.dshp-dock[data-theme="white"],.dshp-dock[data-theme="dusk"]{backdrop-filter:blur(22px) saturate(1.4)!important;-webkit-backdrop-filter:blur(22px) saturate(1.4)!important;color:var(--dshp-ink)!important;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent)!important;--dshp-glass:blur(18px) saturate(1.35);--dshp-accent:var(--dsw-alias-brand-primary,#3d8f68);--dshp-fill:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 14%,transparent)}
+.dshp-dock[data-theme="white"]{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent)!important;--dshp-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);--dshp-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);--dshp-hi:color-mix(in srgb,#fff 48%,transparent);--dshp-ink:var(--dsw-alias-label-primary,#16140f);--dshp-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#16140f) 76%,var(--dsw-alias-label-secondary,#3c362e));--dshp-ok:#2f6b4f;--dshp-warn:#8a5a12;--dshp-bad:#9a3434;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 48%,transparent),0 16px 40px color-mix(in srgb,#000 16%,transparent)!important}
+.dshp-dock[data-theme="dusk"]{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent)!important;--dshp-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);--dshp-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent);--dshp-hi:color-mix(in srgb,#fff 10%,transparent);--dshp-ink:var(--dsw-alias-label-primary,#f4f1ea);--dshp-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#f4f1ea) 84%,var(--dsw-alias-label-secondary,#c9c3b8));--dshp-ok:#8fd0a8;--dshp-warn:#e4c48a;--dshp-bad:#f0b4b4;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent),0 16px 40px color-mix(in srgb,#000 28%,transparent)!important}
 .dshp-dock .dshp-dock-head,.dshp-dock .dshp-dock-tabs{background:transparent!important;color:var(--dshp-ink)!important}
-.dshp-dock .dshp-dock-head,.dshp-dock .dshp-dock-head b,.dshp-dock .dshp-dock-head button,.dshp-dock .dshp-dock-tab,.dshp-dock .dshp-dock-tab.on{color:var(--dshp-ink)!important;text-shadow:none!important;font-weight:500}
-.dshp-dock .dshp-dock-tab{font-size:13px}
-.dshp-dock .dshp-dock-tab.on{border-bottom-color:var(--dshp-ink)!important}
-.dshp-dock-body .rt-dock{font-size:13px!important;line-height:20px!important;font-weight:400!important;color:var(--dshp-ink)!important;--rt-ink:var(--dshp-ink);--rt-mute:var(--dshp-mute);--rt-surf:var(--dsw-alias-bg-layer-2,color-mix(in srgb,currentColor 4%,transparent));--rt-surf-2:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,currentColor 6%,transparent));--rt-line:var(--dsw-alias-border-l2,color-mix(in srgb,currentColor 14%,transparent))}
+.dshp-dock .dshp-dock-head,.dshp-dock .dshp-dock-head b,.dshp-dock .dshp-dock-head button,.dshp-dock .dshp-dock-tab,.dshp-dock .dshp-dock-tab.on{color:var(--dshp-ink)!important;text-shadow:none!important;font-weight:600}
+.dshp-dock .dshp-dock-tab{font-size:14px}
+.dshp-dock .dshp-dock-tab.on{border-bottom-color:var(--dsw-alias-brand-primary,#6d8f78)!important}
+.dshp-dock-body .rt-dock{font-size:14px!important;line-height:1.6!important;font-weight:500!important;color:var(--dshp-ink)!important;--rt-ink:var(--dshp-ink);--rt-mute:var(--dshp-mute);--rt-paper:var(--dshp-paper);--rt-paper-2:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 28%,transparent);--rt-well:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 32%,transparent);--rt-fill:var(--dshp-fill);--rt-surf:var(--dshp-paper);--rt-surf-2:var(--dshp-fill);--rt-line:var(--dshp-line);--rt-hi:var(--dshp-hi);--rt-glass:var(--dshp-glass);--rt-accent:var(--dshp-accent);--rt-ok:var(--dshp-ok);--rt-warn:var(--dshp-warn);--rt-bad:var(--dshp-bad)}
+.dshp-dock[data-theme="dusk"] .dshp-dock-body .rt-dock{--rt-paper-2:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 28%,transparent);--rt-well:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 26%,transparent)}
+body[data-ds-dark-theme] .dshp-launch{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);color:var(--dsw-alias-label-primary,#f4f1ea)}
 .dshp-dock-body .rt-title,.dshp-dock-body .rt-tab,.dshp-dock-body .rt-tab.on,.dshp-dock-body .rt-card,.dshp-dock-body .rt-card h4,.dshp-dock-body .rt-row,.dshp-dock-body .rt-vrow,.dshp-dock-body .rt-kv,.dshp-dock-body .rt-kv b,.dshp-dock-body .rt-kv span,.dshp-dock-body .rt-mono,.dshp-dock-body .rt-empty,.dshp-dock-body .rt-foot,.dshp-dock-body .rt-tag,.dshp-dock-body .rt-item,.dshp-dock-body .rt-item-name,.dshp-dock-body .rt-item-desc,.dshp-dock-body .rt-sec-sub,.dshp-dock-body .rt-kb-sub,.dshp-dock-body .rt-seg-cidr,.dshp-dock-body .rt-seg-meta,.dshp-dock-body .rt-section,.dshp-dock-body .rt-note,.dshp-dock-body .rt-hint{color:var(--dshp-ink)!important;text-shadow:none!important;opacity:1!important}
 .dshp-dock-body .rt-tab,.dshp-dock-body .rt-foot,.dshp-dock-body .rt-empty,.dshp-dock-body .rt-item-desc,.dshp-dock-body .rt-kb-sub,.dshp-dock-body .rt-kv span,.dshp-dock-body .rt-tag,.dshp-dock-body .rt-sec-sub{color:var(--dshp-mute)!important}
-.dshp-dock-body .rt-card,.dshp-dock-body .rt-pane,.dshp-dock-body .rt-side,.dshp-dock-body .rt-table,.dshp-dock-body .rt-toolbar,.dshp-dock-body .rt-embedded>.rt-head,.dshp-dock-body .rt-tabs{background:transparent!important;border-color:var(--dsw-alias-border-l1,#ececec)!important;color:var(--dshp-ink)!important;box-shadow:none!important}
-.dshp-dock-body .rt-btn,.dshp-dock-body .rt-input,.dshp-dock-body .rt-eng-select,.dshp-dock-body textarea.rt-input{background:var(--dsw-alias-bg-layer-1,#fff)!important;color:var(--dshp-ink)!important;border-color:var(--dsw-alias-border-l4,#d0d0d0)!important}
-.dshp-dock-body .rt-btn-primary{background:var(--dsw-alias-button-primary-fill,#111)!important;border-color:transparent!important;color:var(--dsw-alias-label-primary-foreground,#fff)!important}
-.dshp-dock-body .rt-err{font-weight:500}
-.dshp-dock[data-theme="white"] .dshp-dock-body .rt-err{color:var(--dsw-alias-state-error-primary,#ef4444)!important}
-.dshp-dock[data-theme="dusk"] .dshp-dock-body .rt-err{color:var(--dsw-alias-state-error-primary,#f25a5a)!important}
-.dshp-dock-body .rt-rep-http,.dshp-dock-body pre{background:var(--dsw-alias-markdown-code-block,#f5f5f5)!important;color:var(--dshp-ink)!important;border:.5px solid var(--dsw-alias-border-l2,#e5e5e5)!important}
+.dshp-dock-body .rt-card,.dshp-dock-body .rt-sess,.dshp-dock-body .rt-hit,.dshp-dock-body .rt-cred,.dshp-dock-body .rt-evi,.dshp-dock-body .rt-kb,.dshp-dock-body .rt-rep,.dshp-dock-body .rt-flow-node,.dshp-dock-body .rt-hcol{background:var(--dshp-paper)!important;border-color:var(--dshp-line)!important;color:var(--dshp-ink)!important;box-shadow:inset 0 1px 0 var(--dshp-hi)!important;backdrop-filter:var(--dshp-glass);-webkit-backdrop-filter:var(--dshp-glass)}
+.dshp-dock-body .rt-pane,.dshp-dock-body .rt-side,.dshp-dock-body .rt-list,.dshp-dock-body .rt-table,.dshp-dock-body .rt-toolbar,.dshp-dock-body .rt-embedded>.rt-head,.dshp-dock-body .rt-tabs,.dshp-dock-body .rt-foot,.dshp-dock-body .rt-livebar,.dshp-dock-body .rt-concl{background:transparent!important;box-shadow:none!important}
+.dshp-dock-body .rt-btn,.dshp-dock-body .rt-input,.dshp-dock-body .rt-eng-select,.dshp-dock-body textarea.rt-input,.dshp-dock-body .rt-textarea,.dshp-dock-body .rt-code,.dshp-dock-body .rt-evi-body{background:var(--rt-well)!important;color:var(--dshp-ink)!important;border-color:var(--dshp-line)!important;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.dshp-dock-body .rt-btn-primary{background:var(--dsw-alias-brand-primary,#3f6b52)!important;border-color:var(--dsw-alias-brand-primary,#3f6b52)!important;color:#fff!important}
+.dshp-dock[data-theme="white"] .dshp-dock-body .rt-eng-select option,.dshp-dock[data-theme="white"] .dshp-dock-body .rt-input option{background:#fff;color:#16140f}
+.dshp-dock[data-theme="dusk"] .dshp-dock-body .rt-eng-select option,.dshp-dock[data-theme="dusk"] .dshp-dock-body .rt-input option{background:#1b1d22;color:#f4f1ea}
+.dshp-dock-body .rt-err{font-weight:650}
+.dshp-dock[data-theme="white"] .dshp-dock-body .rt-err{color:#9a3434!important}
+.dshp-dock[data-theme="dusk"] .dshp-dock-body .rt-err{color:#f0b4b4!important}
+.dshp-dock-body .rt-rep-http,.dshp-dock-body pre{background:var(--rt-well)!important;color:var(--dshp-ink)!important;border:1px solid var(--dshp-line)!important}
 `;
 
 		function formatSize(bytes) {
@@ -1185,6 +1158,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			if (st === "applied" || st === "already") return "ok";
 			if (st === "pending") return "wait";
 			if (st === "unmatched") return "bad";
+			if (st === "drifted") return "bad";
 			if (st === "na") return "ok";
 			if (st === "missing_file" || st === "skipped" || st === "unlocated" || st === "off") return "miss";
 			return "bad";
@@ -1195,6 +1169,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			if (st === "off") return t("status.skipped");
 			if (st === "pending") return t("status.pending");
 			if (st === "unmatched") return t("status.unmatched");
+			if (st === "drifted") return t("status.drifted");
 			if (st === "skipped") return t("status.skipped");
 			if (st === "missing_file") return t("skip");
 			if (st === "unlocated") return t("status.unlocated");
@@ -1220,19 +1195,78 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			return h("button", Object.assign({ type: type || "button", className: cls }, rest), children);
 		}
 
+		const FLOW_STEPS = {
+			apply: ["home", "locate", "override", "patch", "shim", "flash", "seed", "done"],
+			revert: ["locate", "revert", "shim", "done"],
+			uninstall: ["locate", "revert", "shim", "flash", "cleanup", "done"],
+		};
+
+		function flowLabel(id, t) {
+			if (id === "revert") return t("flow.revert.step");
+			if (id === "cleanup") return t("flow.cleanup");
+			return t("flow." + id);
+		}
+
+		function ApplyFlow({ progress, busy, t }) {
+			const kind = (progress && progress.kind) || "apply";
+			const steps = FLOW_STEPS[kind] || FLOW_STEPS.apply;
+			const stage = (progress && progress.stage) || "idle";
+			const failed = Boolean(progress && progress.error);
+			const active = Boolean(busy || (progress && progress.active));
+			const idx = steps.indexOf(stage === "restart" ? "done" : stage);
+			return h("div", {
+				className: "dshp-flow" + (active ? " is-on" : "") + (failed ? " is-bad" : ""),
+				"aria-label": t("flow.title"),
+			},
+				h("span", { className: "dshp-flow-kind" }, t("flow." + kind)),
+				steps.flatMap((id, i) => {
+					const done = idx > i || (stage === "done" && !failed);
+					const cur = active && idx === i && stage !== "idle";
+					const bad = failed && idx === i;
+					const nodes = [];
+					if (i) {
+						nodes.push(h("span", {
+							key: "w-" + id,
+							className: "dshp-flow-wire" + (done || cur ? " is-on" : ""),
+						}, h("i")));
+					}
+					nodes.push(h("span", {
+						key: id,
+						className: "dshp-flow-node" + (done ? " is-done" : "") + (cur ? " is-cur" : "") + (bad ? " is-bad" : ""),
+					},
+						h("b", null, String(i + 1)),
+						h("em", null, flowLabel(id, t)),
+					));
+					return nodes;
+				}),
+			);
+		}
+
 		function Pill({ value, label }) {
 			const t = useT();
 			return h("span", { className: "dshp-pill is-" + statusKind(value) }, label || statusLabel(value, t));
 		}
 
 		const LAYER_GROUP = {
-			"提示词": "prompt",
-			"代码": "code",
-			"工具": "tools",
-			"0.1.5 兼容": "compat",
-			"0.2.0 兼容": "dsh20",
+			"Prompt": "prompt",
+			"Code": "code",
+			"Tools": "tools",
+			"0.1.5 compat": "compat",
+			"0.2.0 compat": "dsh20",
 		};
 		const GROUP_ORDER = ["prompt", "code", "tools", "compat", "dsh20"];
+		/* The host may report patch layer names in the host locale. The zh dictionary
+		 * still keeps those labels, so map them at runtime instead of hardcoding CJK
+		 * literals in this file. */
+		for (const key of GROUP_ORDER) {
+			const label = zh["group." + key];
+			if (label && !LAYER_GROUP[label]) LAYER_GROUP[label] = key;
+		}
+		function layerGroupOf(layer) {
+			if (LAYER_GROUP[layer]) return LAYER_GROUP[layer];
+			/* zh labels the 0.2.0 layer as "0.2.0" while the host may append a suffix. */
+			return String(layer || "").startsWith(zh["group.dsh20"]) ? "dsh20" : "code";
+		}
 
 		function patchRowsOf(state) {
 			if (!state || !state.ai_base) return [];
@@ -1240,24 +1274,45 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			const rows = fromList
 				? fromList.map((p) => ({
 					id: Number(p.id),
+					ids: Array.isArray(p.ids) && p.ids.length ? p.ids.map(Number) : [Number(p.id)],
 					st: p.status || "missing_file",
 					layer: p.layer || "",
+					title: p.title || "",
 				}))
 				: Object.keys(state.patch_status || {}).map((id) => ({
 					id: Number(id),
+					ids: [Number(id)],
 					st: state.patch_status[id],
 					layer: "",
+					title: "",
 				}));
 			return rows.filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
 		}
 
+		function patchIdLabel(r) {
+			const ids = Array.isArray(r.ids) && r.ids.length ? r.ids : [r.id];
+			return ids.map((id) => "#" + id).join("/");
+		}
+
+		function patchTitle(t, state, r) {
+			if (r && r.title) return r.title;
+			const id = r && typeof r === "object" ? r.id : r;
+			const key = "patch." + id;
+			const hit = t(key);
+			if (hit && hit !== key) return hit;
+			const names = state && state.patch_names;
+			const name = names && (names[id] || names[String(id)]);
+			return name || key;
+		}
+
 		function tallyPatches(rows) {
-			const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
+			const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, drifted: 0, total: 0 };
 			for (const row of rows || []) {
 				out.total += 1;
 				if (row.st === "applied" || row.st === "already") out.applied += 1;
 				else if (row.st === "pending") out.pending += 1;
 				else if (row.st === "unmatched") out.unmatched += 1;
+				else if (row.st === "drifted") out.drifted += 1;
 				else out.skipped += 1;
 			}
 			return out;
@@ -1266,16 +1321,12 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 		function PatchGroups({ state }) {
 			const t = useT();
 			const [open, setOpen] = useState({});
-			if (!state || !state.patch_status) return h("div", { className: "dshp-skel-rows" },
-				h("div", { className: "dshp-skel" }),
-				h("div", { className: "dshp-skel" }),
-				h("div", { className: "dshp-skel" }),
-			);
+			if (!state || !state.patch_status) return h("div", { className: "dshp-skel", style: { height: 120 } });
 			const located = !!state.ai_base;
 			if (!located) return null;
 			const grouped = new Map();
 			for (const row of patchRowsOf(state)) {
-				const key = LAYER_GROUP[row.layer] || "code";
+				const key = layerGroupOf(row.layer);
 				if (!grouped.has(key)) grouped.set(key, []);
 				grouped.get(key).push(row);
 			}
@@ -1286,21 +1337,18 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				const notes = [];
 				if (tally.pending) notes.push(t("metric.pendingShort", { n: tally.pending }));
 				if (tally.unmatched) notes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
+				if (tally.drifted) notes.push(t("metric.driftedShort", { n: tally.drifted }));
 				if (tally.skipped) notes.push(t("metric.skipShort", { n: tally.skipped }));
 				const expanded = !!open[key];
-				const allDone = tally.applied === tally.total;
-				return h("div", { key: key, className: "dshp-group" + (expanded ? " is-open" : "") },
+				return h("div", { key: key, className: "dshp-group" },
 					h("button", {
 						type: "button",
 						className: "dshp-group-h",
 						"aria-expanded": expanded ? "true" : "false",
 						onClick: () => setOpen((prev) => Object.assign({}, prev, { [key]: !prev[key] })),
 					},
-						h("span", { className: "dshp-caret", "aria-hidden": "true" }, "›"),
 						h("strong", null, t("group." + key)),
-						h("em", null, notes.length ? notes.join(" · ") : ""),
-						h("span", { className: "dshp-count" }, tally.applied + "/" + tally.total),
-						h(Pill, { value: allDone ? "applied" : (tally.pending ? "pending" : "unmatched") }),
+						h("span", { className: "dshp-count" }, tally.applied + "/" + tally.total + (notes.length ? " · " + notes.join(" · ") : "")),
 					),
 					expanded ? h("table", { className: "dshp-table" },
 						h("thead", null, h("tr", null,
@@ -1308,119 +1356,14 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 							h("th", null, t("table.patch")),
 							h("th", null, t("table.status")),
 						)),
-						h("tbody", null, rows.map((r) => h("tr", { key: r.id },
-							h("td", { className: "dshp-id" }, "#" + r.id),
-							h("td", null, t("patch." + r.id)),
+						h("tbody", null, rows.map((r) => h("tr", { key: r.ids ? r.ids.join("-") : r.id },
+							h("td", { className: "dshp-id" }, patchIdLabel(r)),
+							h("td", null, patchTitle(t, state, r)),
 							h("td", null, h(Pill, { value: r.st })),
 						))),
 					) : null,
 				);
 			});
-		}
-
-		/* 审批档位 + 审计流水。
-		 * 两个诉求分开：审计永远记（谁调的、批没批、结果如何），审批只是可选门槛。
-		 * 默认 audit 表示行为与旧版一致，仅多一份流水；enforce 才要求 allowed-once。 */
-		function GateSection({ t }) {
-			const tr = typeof t === "function" ? t : ((key) => key);
-			const [mode, setMode] = useState(null);
-			const [gated, setGated] = useState([]);
-			const [busy, setBusy] = useState(false);
-			const [notice, setNotice] = useState({ kind: "idle", text: "" });
-			const [auditOpen, setAuditOpen] = useState(false);
-			const [auditText, setAuditText] = useState("");
-			const [auditBusy, setAuditBusy] = useState(false);
-
-			useEffect(() => {
-				apiJson("/dsh-purge/approval-mode")
-					.then((d) => {
-						if (d && d.ok) {
-							setMode(d.mode === "enforce" ? "enforce" : "audit");
-							setGated(Array.isArray(d.gated) ? d.gated : []);
-						}
-					})
-					.catch(() => {});
-			}, []);
-
-			const save = (next) => {
-				if (busy || !next) return;
-				const previous = mode;
-				setMode(next);
-				setBusy(true);
-				apiJson("/dsh-purge/approval-mode", {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ mode: next }),
-				})
-					.then((d) => {
-						if (d && d.ok) {
-							setNotice({ kind: "ok", text: tr("gate.saved") });
-						} else {
-							setMode(previous);
-							setNotice({ kind: "error", text: tr("err.save", { error: (d && d.error) || "" }) });
-						}
-					})
-					.catch((e) => {
-						setMode(previous);
-						setNotice({ kind: "error", text: tr("err.save", { error: e.message }) });
-					})
-					.finally(() => setBusy(false));
-			};
-
-			const loadAudit = () => {
-				setAuditBusy(true);
-				apiJson("/dsh-purge/audit?limit=40")
-					.then((d) => setAuditText(d && d.ok ? String(d.text || "") : tr("err.status", { error: (d && d.error) || "" })))
-					.catch((e) => setAuditText(tr("err.status", { error: e.message })))
-					.finally(() => setAuditBusy(false));
-			};
-
-			const toggleAudit = () => {
-				const next = !auditOpen;
-				setAuditOpen(next);
-				if (next) loadAudit();
-			};
-
-			if (!mode) return null;
-			return h("div", { className: "dshp-gate" },
-				h("div", { className: "dshp-sub" },
-					h("h4", null, tr("gate.title")),
-					noticeNode(notice),
-				),
-				h("p", { className: "dshp-hint" }, tr("gate.hint")),
-				h("div", { className: "dshp-row" },
-					h("label", null,
-						h("input", {
-							type: "radio",
-							name: "dshp-approval-mode",
-							checked: mode === "audit",
-							disabled: busy,
-							onChange: () => save("audit"),
-						}),
-						tr("gate.mode.audit"),
-					),
-					h("label", null,
-						h("input", {
-							type: "radio",
-							name: "dshp-approval-mode",
-							checked: mode === "enforce",
-							disabled: busy,
-							onChange: () => save("enforce"),
-						}),
-						tr("gate.mode.enforce"),
-					),
-				),
-				gated.length
-					? h("p", { className: "dshp-hint" }, tr("gate.gated", { list: gated.join(", ") }))
-					: null,
-				h("div", { className: "dshp-row" },
-					h(Btn, { tiny: true, onClick: toggleAudit }, auditOpen ? tr("gate.audit.hide") : tr("gate.audit.show")),
-					auditOpen ? h(Btn, { tiny: true, disabled: auditBusy, onClick: loadAudit }, auditBusy ? tr("gate.audit.busy") : tr("gate.audit.refresh")) : null,
-				),
-				auditOpen
-					? h("pre", { className: "dshp-audit" }, auditBusy ? tr("gate.audit.busy") : (auditText || tr("gate.audit.empty")))
-					: null,
-			);
 		}
 
 		function HooksDenySection({ onSaved }) {
@@ -1612,10 +1555,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			const tRef = useRef(t);
 			tRef.current = t;
 			const [state, setState] = useState(null);
-			/* doAction 是 useCallback、依赖数组很短，直接闭包读 state 会永远拿到第一次的值。
-			 * 用 ref 镜像当前状态，动作时才读真实 rev。 */
-			const stateRef = useRef(state);
-			stateRef.current = state;
 			const [override, setOverride] = useState("");
 			const [defaultOverride, setDefaultOverride] = useState("");
 			const [overrideLoaded, setOverrideLoaded] = useState(false);
@@ -1638,6 +1577,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			const overrideRef = useRef("");
 			const defaultOverrideRef = useRef("");
 			const promptSeededRef = useRef(false);
+			const promptDirtyRef = useRef(false);
 			const promptAreaRef = useRef(null);
 			overrideRef.current = override;
 			defaultOverrideRef.current = defaultOverride;
@@ -1819,7 +1759,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 							const packed = typeof d.defaultContent === "string" ? d.defaultContent : "";
 							const shown = typeof d.content === "string" ? d.content : packed;
 							if (packed) setDefaultOverride(packed);
-							if (!promptSeededRef.current) {
+							if (!promptSeededRef.current || !promptDirtyRef.current) {
 								promptSeededRef.current = true;
 								setOverride(shown || packed);
 							}
@@ -1844,6 +1784,30 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				return () => clearTimeout(timer);
 			}, [loadAll]);
 
+			useEffect(() => {
+				if (!patchBusy && !uninstallBusy) return undefined;
+				let stop = false;
+				const tick = () => {
+					apiJson("/dsh-purge/status")
+						.then((d) => {
+							if (stop || !d) return;
+							if (d.apply_progress) {
+								setState((prev) => Object.assign({}, prev || {}, d.ok ? d : { apply_progress: d.apply_progress }));
+								return;
+							}
+							if (!d.ok) return;
+							setState((prev) => Object.assign({}, prev || {}, d));
+						})
+						.catch(() => {});
+				};
+				tick();
+				const id = setInterval(tick, 450);
+				return () => {
+					stop = true;
+					clearInterval(id);
+				};
+			}, [patchBusy, uninstallBusy]);
+
 			const rejectNeedPrompt = useCallback((tr) => {
 				setAskRestart(false);
 				setNotice({ kind: "error", text: tr("need.prompt") });
@@ -1858,26 +1822,23 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					setPatchBusy(true);
 					setAskRestart(false);
 					setNotice({ kind: "idle", text: "" });
+					setState((prev) => Object.assign({}, prev || {}, {
+						apply_progress: {
+							active: true,
+							kind: action === "revert" ? "revert" : "apply",
+							stage: action === "revert" ? "locate" : "home",
+							error: "",
+						},
+					}));
 					const applyContent = action === "apply" ? readPromptBox() : "";
-					/* 带上当前修订号：两个窗口同时开着，后点的那个会被服务端 409 挡住，
-					 * 而不是静默覆盖先点的结果。rev 来自 /status 与上一次动作的响应。 */
-					const body = action === "apply" ? { content: applyContent, rev: stateRef.current?.rev } : { rev: stateRef.current?.rev };
 					fetch("/dsh-purge/" + action, {
 						method: "POST",
 						headers: { "content-type": "application/json" },
-						body: JSON.stringify(body),
+						body: JSON.stringify(action === "apply" ? { content: applyContent } : {}),
 					})
-						.then((r) => r.json().then((d) => ({ status: r.status, d })))
-						.then(({ status, d }) => {
+						.then((r) => r.json())
+						.then((d) => {
 							if (ticket !== actionTicket.current) return;
-							if (status === 409 && d && d.stale) {
-								/* 过期写入：说明别的窗口已经动过。提示后自动重新拉一次状态，
-								 * 让界面回到真实值，而不是留着旧数字让用户重复点击。 */
-								setNotice({ kind: "error", text: tr("err.stale", { rev: String(d.rev ?? "?"), last: String(d.last?.action || "?") }) });
-								if (typeof d.rev === "number") setState((prev) => ({ ...(prev || {}), rev: d.rev }));
-								loadAll();
-								return;
-							}
 							if (responseNeedsPrompt(d)) {
 								rejectNeedPrompt(tr);
 								return;
@@ -1886,7 +1847,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 								setNotice({ kind: "error", text: tr("err.action", { action: label, error: d.error || "" }) });
 								return;
 							}
-							if (typeof d.rev === "number") setState((prev) => ({ ...(prev || {}), rev: d.rev }));
 							if (action === "apply") {
 								if (typeof d.defaultContent === "string") setDefaultOverride(d.defaultContent);
 								if (typeof d.override_content === "string") {
@@ -1930,12 +1890,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 							if (action === "apply") {
 								setNotice({ kind: "ok", text: tr("ok.done") });
 								loadAll();
-								if (d.restarting || d.needs_full_quit) {
-									suppressRestartAsk.current = false;
-									setAskRestart(true);
-								} else {
-									setAskRestart(false);
-								}
+								suppressRestartAsk.current = false;
+								setAskRestart(true);
 								return;
 							}
 							setNotice({ kind: "ok", text: tr("ok.done") });
@@ -1951,6 +1907,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				};
 				run();
 			}, [loadAll, rejectNeedPrompt, state]);
+
 			const saveOverride = useCallback(() => {
 				const tr = t;
 				const ticket = ++actionTicket.current;
@@ -1971,7 +1928,11 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 								rejectNeedPrompt(tr);
 								return;
 							}
-							if (typeof d.content === "string") setOverride(d.content);
+							if (typeof d.content === "string") {
+								overrideRef.current = d.content;
+								setOverride(d.content);
+							}
+							promptDirtyRef.current = false;
 							setNotice({ kind: "ok", text: t("saved.override") });
 						})
 						.catch((e) => {
@@ -2015,6 +1976,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 							overrideRef.current = d.content;
 							setOverride(d.content);
 						}
+						promptDirtyRef.current = false;
 						setNotice({ kind: "ok", text: tr("saved.restoreInject") });
 					})
 					.catch((e) => {
@@ -2060,6 +2022,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				setAskRestart(false);
 				const tr = tRef.current;
 				setNotice({ kind: "ok", text: tr("uninstall.applying") });
+				setState((prev) => Object.assign({}, prev || {}, {
+					apply_progress: { active: true, kind: "uninstall", stage: "locate", error: "" },
+				}));
 				apiJson("/dsh-purge/uninstall", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
 					.then((d) => {
 						if (!d || !d.ok) throw new Error((d && d.error) || "uninstall failed");
@@ -2086,13 +2051,20 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			const desktopLikely = hostSurface === "desktop" || clientGuessSurface() === "desktop";
 			const sealedReady = !located && desktopLikely && !!(s && (s.asar_still_sealed || s.desktop_exe || s.desktop_install));
 			const patchesLost = !located && !!(s && s.patches_lost);
-			const tally = located ? tallyPatches(patchRowsOf(s)) : { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
+			const tally = located ? tallyPatches(patchRowsOf(s)) : { applied: 0, pending: 0, unmatched: 0, skipped: 0, drifted: 0, total: 0 };
 			const total = tally.total;
 			const applied = tally.applied;
-			const pct = located && total ? Math.round((applied / total) * 100) : 0;
+			const job = s && s.apply_progress;
+			const jobOn = Boolean(patchBusy || uninstallBusy || (job && job.active));
+			const jobSteps = FLOW_STEPS[(job && job.kind) || "apply"] || FLOW_STEPS.apply;
+			const jobIdx = jobSteps.indexOf(job && job.stage === "restart" ? "done" : ((job && job.stage) || "idle"));
+			const pct = jobOn
+				? Math.round(((job && job.stage === "done" ? jobSteps.length : Math.max(jobIdx, 0) + 0.45) / jobSteps.length) * 100)
+				: (located && total ? Math.round((applied / total) * 100) : 0);
 			const metricNotes = [];
 			if (tally.pending) metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
 			if (tally.unmatched) metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
+			if (tally.drifted) metricNotes.push(t("metric.driftedShort", { n: tally.drifted }));
 			if (tally.skipped) metricNotes.push(t("metric.skipShort", { n: tally.skipped }));
 
 			const versions = (updateInfo && updateInfo.versions) || [];
@@ -2117,12 +2089,15 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					actionClick = () => {};
 				} else if (pickedOther) {
 					actionLabel = t("update.switch");
+					actionKind = "primary";
 					actionClick = () => switchSelected(id);
 				} else if (!onLane) {
 					actionLabel = id === "beta" ? t("channel.useBeta") : t("channel.useStable");
+					actionKind = "primary";
 					actionClick = () => changeChannel(id);
 				} else if (canApplyUpdate && lane.hasUpdate) {
 					actionLabel = t("btn.doUpdate");
+					actionKind = "primary";
 					actionClick = () => doUpdate(id);
 				}
 				if (thisJob) {
@@ -2155,13 +2130,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					h(Btn, { tiny: true, kind: actionKind, disabled: actionDisabled, onClick: actionClick }, actionLabel),
 				);
 			};
-			return h(react.Fragment, null,
-			h("section", { className: "dshp-panel", "aria-label": t("purge.title") },
+			return h("section", { className: "dshp-panel", "aria-label": t("purge.title") },
 				h("div", { className: "dshp-head" },
-					h("div", null,
-						h("h3", { className: "dshp-title" }, t("purge.title")),
-						h("p", { className: "dshp-panel-lead" }, t("purge.lead")),
-					),
+					h("h3", { className: "dshp-title" }, t("purge.title")),
 					h("span", { className: "dshp-pill" }, t("surface." + hostSurface)),
 				),
 				h("div", { className: "dshp-rel" },
@@ -2200,19 +2171,36 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					h("div", { className: "dshp-metric" }, h("div", { className: "dshp-skel" }), h("div", { className: "dshp-skel", style: { width: "40%" } })),
 					h("div", { className: "dshp-metric" }, h("div", { className: "dshp-skel" }), h("div", { className: "dshp-skel", style: { width: "40%" } })),
 				),
-				h("div", { className: "dshp-bar", "aria-hidden": "true" }, h("i", { style: { width: pct + "%" } })),
+				h(ApplyFlow, { progress: s && s.apply_progress, busy: patchBusy || uninstallBusy, t: t }),
+				h("div", { className: "dshp-bar", "aria-hidden": "true" }, h("i", { style: { transform: "scaleX(" + (pct / 100) + ")" } })),
 				h(PatchGroups, { state: s }),
 				h(HooksDenySection, { onSaved: loadAll }),
-				h(GateSection, { t }),
-				h("div", { className: "dshp-row", style: { marginTop: 2 } },
+				h("div", { className: "dshp-row", style: { marginTop: 12 } },
 					h(Btn, { kind: "primary", disabled: patchBusy || uninstallBusy || !overrideLoaded, onClick: () => doAction("apply", "action.apply") }, patchBusy ? t("btn.apply.busy") : t("btn.apply")),
-					h(Btn, { kind: "ghost", disabled: patchBusy || uninstallBusy, onClick: () => doAction("revert", "action.revert") }, t("btn.revert")),
-					h(Btn, { kind: "danger", disabled: patchBusy || uninstallBusy, onClick: () => setAskUninstall(true) }, uninstallBusy ? t("btn.uninstall.busy") : t("btn.uninstall")),
+					h(Btn, { kind: "danger", disabled: patchBusy || uninstallBusy, onClick: () => doAction("revert", "action.revert") }, t("btn.revert")),
+					h(Btn, { kind: "solid-danger", disabled: patchBusy || uninstallBusy, onClick: () => setAskUninstall(true) }, uninstallBusy ? t("btn.uninstall.busy") : t("btn.uninstall")),
 					noticeNode(notice),
 				),
-				h("p", { className: "dshp-block-hint" }, t("apply.hint")),
-				s && !s.ai_base ? h("p", { className: "dshp-block-hint", style: { color: "var(--dshp-bad)" } }, hostText(t, "warn.noRoot", hostSurface)) : null,
-				s && s.ai_base && s.override_status === "missing" ? h("p", { className: "dshp-block-hint" }, t("warn.noInject")) : null,
+				askUninstall ? h("div", {
+					className: "dshp-modal-bg",
+					role: "dialog",
+					"aria-modal": "true",
+					"aria-labelledby": "dshp-uninstall-title",
+					onClick: (e) => { if (e.target === e.currentTarget && !uninstallBusy) setAskUninstall(false); },
+				},
+					h("div", { className: "dshp-modal" },
+						h("h4", { id: "dshp-uninstall-title" }, t("uninstall.title")),
+						h("p", null, t("uninstall.body")),
+						h("div", { className: "dshp-modal-ops" },
+							h(Btn, { disabled: uninstallBusy, onClick: () => setAskUninstall(false) }, t("uninstall.cancel")),
+							h(Btn, { kind: "solid-danger", disabled: uninstallBusy, onClick: doUninstall }, t("uninstall.confirm")),
+						),
+					),
+				) : null,
+				h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-mute)", fontSize: 12 } }, t("apply.hint")),
+				s && !s.ai_base ? h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-danger, #c44)", fontSize: 12 } }, hostText(t, "warn.noRoot", hostSurface)) : null,
+				s && s.ai_base && s.override_status === "missing" ? h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-mute)", fontSize: 12 } }, t("warn.noInject")) : null,
+				s && s.ai_base && s.host_supported === false ? h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-danger, #c44)", fontSize: 12 } }, t("warn.hostVersion", { v: s.host_version || "?", t: s.host_target || "?" })) : null,
 				askRestart ? h(RestartAsk, {
 					t: t,
 					theme: detectHostTheme(),
@@ -2226,13 +2214,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 						restartDsh(setNotice, function () {}, t, hostSurface);
 					},
 				}) : null,
-			),
-			h("section", { className: "dshp-panel", "aria-label": t("override.title") },
-				h("div", { className: "dshp-head" },
-					h("div", null,
-						h("h3", { className: "dshp-title" }, t("override.title")),
-						h("p", { className: "dshp-panel-lead" }, t("override.lead")),
-					),
+				// h(ContinueRetrySection, null),
+				h("div", { className: "dshp-sub" },
+					h("h4", null, t("override.title")),
 					h("div", { className: "dshp-row", style: { margin: 0 } },
 						h(Btn, { kind: "primary", tiny: true, disabled: patchBusy || !overrideLoaded, onClick: saveOverride }, t("btn.saveInject")),
 						h(Btn, { tiny: true, disabled: patchBusy || !overrideLoaded || !defaultOverride, onClick: restoreOverride }, t("btn.restoreInject")),
@@ -2243,6 +2227,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					ref: promptAreaRef,
 					value: override,
 					onChange: (e) => {
+						promptDirtyRef.current = true;
 						overrideRef.current = e.target.value;
 						setOverride(e.target.value);
 					},
@@ -2250,64 +2235,13 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					placeholder: "",
 				}),
 				promptBoxEmpty(override) ? h("p", {
-					className: "dshp-block-hint",
-					style: { color: "var(--dshp-bad)" },
+					className: "dshp-hint",
+					style: { margin: "8px 0 0", color: "var(--dshp-danger, #c44)", fontSize: 12 },
 				}, t("need.prompt")) : null,
-			),
-			h("section", { className: "dshp-panel", "aria-label": t("own.title") },
-				h("div", { className: "dshp-head" },
-					h("div", null,
-						h("h3", { className: "dshp-title" }, t("own.title")),
-						h("p", { className: "dshp-panel-lead" }, t("own.hint")),
-					),
-					h(Btn, {
-						kind: "primary",
-						tiny: true,
-						disabled: !ownLoaded,
-						onClick: () => {
-							fetch("/dsh-purge/own-servers", {
-								method: "POST",
-								headers: { "content-type": "application/json" },
-								body: JSON.stringify({ content: ownServers }),
-							}).then((r) => r.json()).then((d) => {
-								if (!d || !d.ok) {
-									setNotice({ kind: "error", text: (d && d.error) || t("err.override", { error: "" }) });
-									return;
-								}
-								if (typeof d.content === "string") setOwnServers(d.content);
-								setNotice({
-									kind: "ok",
-									text: d.dropped > 0 ? t("saved.own.dropped", { n: d.dropped }) : t("saved.own"),
-								});
-							}).catch((e) => setNotice({ kind: "error", text: e.message }));
-						},
-					}, t("own.save")),
+				h("div", { className: "dshp-sub" },
+					h("h4", null, t("own.title")),
 				),
-				h("textarea", {
-					className: "dshp-area",
-					value: ownServers,
-					onChange: (e) => setOwnServers(e.target.value),
-					spellCheck: false,
-					rows: 4,
-					style: { minHeight: 96 },
-				}),
-			),
-			askUninstall ? h("div", {
-				className: "dshp-modal-bg",
-				role: "dialog",
-				"aria-modal": "true",
-				"aria-labelledby": "dshp-uninstall-title",
-				onClick: (e) => { if (e.target === e.currentTarget && !uninstallBusy) setAskUninstall(false); },
-			},
-				h("div", { className: "dshp-modal" },
-					h("h4", { id: "dshp-uninstall-title" }, t("uninstall.title")),
-					h("p", null, t("uninstall.body")),
-					h("div", { className: "dshp-modal-ops" },
-						h(Btn, { disabled: uninstallBusy, onClick: () => setAskUninstall(false) }, t("uninstall.cancel")),
-						h(Btn, { kind: "solid-danger", disabled: uninstallBusy, onClick: doUninstall }, t("uninstall.confirm")),
-					),
-				),
-			) : null,
+				h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-mute)", fontSize: 12 } }, t("own.hint")),
 			);
 		}
 
@@ -3058,206 +2992,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			return detectHostTheme();
 		}
 
-		/* ── 设置页外壳 ───────────────────────────────────────────────────────────
-		 * 1.3.0 起主入口搬到「设置 → DeepSeek Harness 破甲」：
-		 *   · 页面用官方 settings.section 契约注册，描述符只有 id/order/label；
-		 *     官方设置页会按 section id 画图标，未知 id 落到齿轮，所以这里不传 icon；
-		 *   · 页面内部用分段控件（破甲 / 规则 / 技能），不再横向摊三块；
-		 *   · 顶部只留一行说明 + 分段，避免和设置外壳的双层标题打架。
-		 * 右侧浮动 dock 仍然保留，作为对话里随手打开的快捷面板。
-		 * ──────────────────────────────────────────────────────────────────────── */
-		const PAGE_SEGMENTS = [
-			{ id: "armor", key: "page.seg.armor" },
-			{ id: "rules", key: "page.seg.rules" },
-			{ id: "skills", key: "page.seg.skills" },
-			{ id: "drill", key: "page.seg.drill" },
-		];
-
-		/* 设置导航行的图标。
-		 * `settings.section` 契约只投影 id / order / label，没有 icon 字段；外壳按 section id
-		 * 决定字形，未知 id 一律画齿轮（和「通用设置」撞脸）。所以只能按 label 认出自己那一行、
-		 * 打上标记，再用 CSS 把外壳的 svg 藏掉、把下面这张 mask 图盖上去。
-		 * 图形是「开了口的锁」：一是不和任何官方图标重复，二是 16px 下轮廓仍然清楚，
-		 * 三是不用颜色也能读懂（mask 只吃 alpha，本来就没法做双色）。 */
-		const NAV_ICON_MARKER = "data-dsh-purge-nav-icon";
-		const NAV_ICON_SVG =
-			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">' +
-			'<path fill="#000" d="M6.9 10.1h10.2a2 2 0 0 1 2 2v7.1a2 2 0 0 1-2 2H6.9a2 2 0 0 1-2-2v-7.1a2 2 0 0 1 2-2Zm5.1 2.7a1.5 1.5 0 0 0-.75 2.8v1.5a.75.75 0 0 0 1.5 0v-1.5A1.5 1.5 0 0 0 12 12.8Z"/>' +
-			'<path fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" d="M8.2 10.1V7.6a3.9 3.9 0 0 1 7.1-2.3"/>' +
-			"</svg>";
-		const NAV_ICON_MASK_URL = "url(\"data:image/svg+xml;utf8," + encodeURIComponent(NAV_ICON_SVG) + "\")";
-		const NAV_ROW_SELECTOR = "[role=\"dialog\"] nav button";
-
-		function installSettingsNavIcon(ctx, resolveLabel) {
-			if (typeof document === "undefined" || !ctx || typeof ctx.effect !== "function") return;
-			ctx.effect(() => {
-				const tag = document.createElement("style");
-				tag.dataset.plugin = "dsh-purge";
-				tag.dataset.pluginCss = "dsh-purge/settings-nav-icon";
-				tag.textContent = [
-					"[" + NAV_ICON_MARKER + "] > svg { display: none; }",
-					"[" + NAV_ICON_MARKER + "]::before {",
-					"  content: '';",
-					"  flex: none;",
-					"  width: 16px;",
-					"  height: 16px;",
-					"  background-color: currentColor;",
-					"  -webkit-mask-image: " + NAV_ICON_MASK_URL + ";",
-					"  mask-image: " + NAV_ICON_MASK_URL + ";",
-					"  -webkit-mask-repeat: no-repeat;",
-					"  mask-repeat: no-repeat;",
-					"  -webkit-mask-position: center;",
-					"  mask-position: center;",
-					"  -webkit-mask-size: 16px 16px;",
-					"  mask-size: 16px 16px;",
-					"}",
-				].join("\n");
-				document.head.appendChild(tag);
-				let disposed = false;
-				let scheduled = false;
-				let missStreak = 0;
-				let warned = false;
-				const sync = () => {
-					scheduled = false;
-					if (disposed) return;
-					const wanted = String(resolveLabel() || "").trim();
-					if (!wanted) return;
-					const rows = document.querySelectorAll(NAV_ROW_SELECTOR);
-					let hit = null;
-					for (const row of rows) {
-						if (String(row.textContent || "").trim() === wanted) { hit = row; break; }
-					}
-					if (!hit) {
-						/* 面板没开的时候整条 nav 都不存在，这是常态，不该报警。
-						   只有「nav 已经在、我们的行却不在」才是真的注册失败。 */
-						if (rows.length === 0) { missStreak = 0; return; }
-						missStreak += 1;
-						if (missStreak === 2 && !warned) {
-							warned = true;
-							try { console.warn("[dsh-purge] settings nav has no 破甲 row; section registration may have failed"); } catch { /* ignore */ }
-						}
-						return;
-					}
-					missStreak = 0;
-					if (!hit.hasAttribute(NAV_ICON_MARKER)) hit.setAttribute(NAV_ICON_MARKER, "1");
-				};
-				const schedule = () => {
-					if (scheduled || disposed) return;
-					scheduled = true;
-					window.requestAnimationFrame(sync);
-				};
-				const observer = new MutationObserver(schedule);
-				observer.observe(document.body || document.documentElement, {
-					childList: true,
-					subtree: true,
-					attributes: true,
-					attributeFilter: ["class", "data-ds-dark-theme"],
-				});
-				schedule();
-				return () => {
-					disposed = true;
-					observer.disconnect();
-					tag.remove();
-					for (const row of document.querySelectorAll("[" + NAV_ICON_MARKER + "]")) {
-						row.removeAttribute(NAV_ICON_MARKER);
-					}
-				};
-			}, "dsh-purge: settings nav icon");
-		}
-
-		function SettingsPage(props) {
-			const t = typeof props.t === "function" ? props.t : translate;
-			const [seg, setSeg] = useState("armor");
-			const [theme, setTheme] = useState(readTheme);
-			useEffect(() => {
-				let cancelled = false;
-				let timer = 0;
-				const syncFromHost = () => {
-					if (!cancelled) setTheme(detectHostTheme());
-				};
-				const syncSoon = () => {
-					if (timer) window.clearTimeout(timer);
-					timer = window.setTimeout(syncFromHost, 50);
-				};
-				syncFromHost();
-				let mq;
-				try {
-					mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-					mq?.addEventListener?.("change", syncFromHost);
-				} catch { /* ignore */ }
-				let obs;
-				try {
-					obs = new MutationObserver(syncSoon);
-					if (document.body) obs.observe(document.body, { attributes: true, attributeFilter: ["data-ds-dark-theme", "class", "style"] });
-					obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-ds-dark-theme", "class", "style"] });
-				} catch { /* ignore */ }
-				return () => {
-					cancelled = true;
-					if (timer) window.clearTimeout(timer);
-					try { mq?.removeEventListener?.("change", syncFromHost); } catch { /* ignore */ }
-					try { obs?.disconnect(); } catch { /* ignore */ }
-				};
-			}, []);
-			translate = t;
-			return h("div", { className: "dshp-root dshp-page", "data-theme": theme, "data-seg": seg },
-				h("style", null, PURGE_CSS),
-				h("div", { className: "dshp-page-head" },
-					h("div", { className: "dshp-page-text" },
-						h("h2", { className: "dshp-title" }, t("page.title")),
-						h("p", { className: "dshp-page-lead" }, t("page.lead")),
-					),
-					h("div", { className: "dshp-segbar", role: "tablist", "aria-label": t("page.title") },
-						PAGE_SEGMENTS.map((item) => h("button", {
-							key: item.id,
-							type: "button",
-							role: "tab",
-							"aria-selected": seg === item.id ? "true" : "false",
-							className: "dshp-seg" + (seg === item.id ? " on" : ""),
-							onClick: () => setSeg(item.id),
-						}, t(item.key))),
-					),
-				),
-				seg === "armor" ? h(PurgifySection, { embedded: true, t: t }) : null,
-				seg === "rules" ? h(RulesSection, { embedded: true, t: t }) : null,
-				seg === "skills" ? h(SkillsSection, { embedded: true, t: t }) : null,
-				seg === "drill" ? h(DrillSection, { t: t }) : null,
-			);
-		}
-
-		/* 演练台。1.3.0 之后会话里不再有浮窗入口，演练台就挂在设置页的第四段。
-		 * 授权门没走过时先渲染门槛说明 + 打开授权窗的按钮，走完就地展开；不再自己拉一块浮层。 */
-		function DrillSection(props) {
-			const t = typeof props.t === "function" ? props.t : translate;
-			const [granted, setGranted] = useState(() => readDrillAuth());
-			useEffect(() => {
-				if (granted) return undefined;
-				const timer = window.setInterval(() => {
-					if (readDrillAuth()) setGranted(true);
-				}, 800);
-				return () => window.clearInterval(timer);
-			}, [granted]);
-			if (!granted) {
-				return h("section", { className: "dshp-panel", "aria-label": t("drill.title") },
-					h("div", { className: "dshp-head" },
-						h("div", null,
-							h("h3", { className: "dshp-title" }, t("drill.title")),
-							h("p", { className: "dshp-panel-lead" }, t("drill.lead")),
-						),
-					),
-					h("div", { className: "dshp-row" },
-						h(Btn, { kind: "primary", onClick: () => requestDrill("tab") }, t("drill.authorize")),
-					),
-				);
-			}
-			const Panel = __dshPurgeDrill && __dshPurgeDrill.Panel;
-			if (!Panel) {
-				return h("section", { className: "dshp-panel" },
-					h("p", { className: "dshp-panel-lead" }, t("drill.unavailable")),
-				);
-			}
-			return h("div", { className: "dshp-drill-host" }, h(Panel, { embedded: true }));
-		}
-
 		function SettingsRoot(props) {
 			const t = typeof props.t === "function" ? props.t : ((key) => key);
 			const [theme, setTheme] = useState(readTheme);
@@ -3295,23 +3029,37 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				h("style", null, PURGE_CSS),
 				h(PurgifySection, null),
 				h(RulesSection, null),
-				h(SkillsSection, null),
 			);
 		}
 
+		const REWIND_CSS = `
+.dshp-rewind-wrap{position:relative;display:inline-flex}
+.dshp-rewind{appearance:none;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,currentColor);font:12px/1 var(--ds-font-sans,system-ui,sans-serif);cursor:pointer}
+.dshp-rewind:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary,currentColor)}
+.dshp-rewind:disabled{opacity:.4;cursor:default}
+.dshp-rewind svg{display:block}
+.dshp-rewind-menu{position:fixed;z-index:2147483000;box-sizing:border-box;min-width:220px;padding:4px;border:0;border-radius:12px;background:var(--dsw-specific-menu,#fff);color:var(--dsw-alias-label-primary,#1a1a1a);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent,0 8px 24px rgba(0,0,0,.16));transform:translateY(-100%)}
+body[data-ds-dark-theme] .dshp-rewind-menu{background:var(--dsw-specific-menu,#32312d);color:var(--dsw-alias-label-primary,#e6e2db);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1,#3f3d38);box-shadow:var(--dsw-elevation-prominent,0 10px 28px rgba(0,0,0,.45))}
+.dshp-rewind-item{display:flex;flex-direction:column;gap:2px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:12px/1.3 var(--ds-font-sans,system-ui,sans-serif)}
+.dshp-rewind-item:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}
+.dshp-rewind-item b{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,inherit)}
+.dshp-rewind-item span{color:var(--dsw-alias-label-tertiary,#9a958c);font-size:11px}
+body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tertiary,#a8a39a)}
+.dshp-continue{appearance:none;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,currentColor);font:12px/1 var(--ds-font-sans,system-ui,sans-serif);cursor:pointer}
+.dshp-continue:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary,currentColor)}
+.dshp-continue:disabled{opacity:.4;cursor:default}
+.dshp-continue.is-ready{color:var(--dsw-alias-label-primary,currentColor)}
+.dshp-continue svg{display:block}
+`;
 		const DRAFT_KEY = "dshp-rewind-draft:";
 		const ARM_KEY = "dshp-rewind-arm:";
 		const FILL_DELAYS = [0, 50, 180, 400, 800];
 		const ARM_TTL_MS = 45 * 1000;
-		/* 这几项原属「回退」功能，回退已删除（1.4.2），但下面的
-		 * clientCurrentCwd / isRedteamModeActive / 环境门禁 仍在用它们来拿当前会话，
-		 * 所以保留变量本身，只把名字改成实际用途：宿主交互上下文。 */
-		let hostSessions = null;
-		let hostCtx = null;
-		/* 客户端根 ctx：apply() 时写入，供「跳到设置页」这类跨槽位调用取 shortcuts。 */
-		let purgeHost = null;
-		let hostWorkspace = null;
-		let hostConversation = null;
+		let rewindSeenAt = 0;
+		let rewindSessions = null;
+		let rewindHost = null;
+		let rewindWorkspace = null;
+		let rewindConversation = null;
 		let pendingComposer = { sessionId: "", text: "", at: 0 };
 		let armedFill = { sessionId: "", text: "", at: 0 };
 
@@ -3327,7 +3075,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		function currentSessionId(sessions) {
 			try {
-				const selected = hostWorkspace?.selection?.getSnapshot?.()?.sessionId;
+				const selected = rewindWorkspace?.selection?.getSnapshot?.()?.sessionId;
 				if (typeof selected === "string" && selected) return selected;
 			} catch { /* ignore */ }
 			try {
@@ -3379,9 +3127,37 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			try { sessionStorage.removeItem(ARM_KEY + sessionId); } catch { /* ignore */ }
 		}
 
+		function armComposerFill(sessionId, text) {
+			if (!sessionId || !text || isPluginDraft(text)) return;
+			const at = Date.now();
+			armedFill = { sessionId, text, at };
+			writeDraft(sessionId, text);
+			try { sessionStorage.setItem(ARM_KEY + sessionId, String(at)); } catch { /* ignore */ }
+		}
+
+		function takeArmedFill(sessionId) {
+			if (!sessionId) return "";
+			let text = "";
+			let at = 0;
+			if (armedFill.sessionId === sessionId && armedFill.text) {
+				text = armedFill.text;
+				at = armedFill.at;
+			} else {
+				text = peekDraft(sessionId);
+				try { at = Number(sessionStorage.getItem(ARM_KEY + sessionId) || 0); } catch { at = 0; }
+			}
+			if (!text || !at || Date.now() - at > ARM_TTL_MS) {
+				if (text && (!at || Date.now() - at > ARM_TTL_MS)) clearStoredDraft(sessionId);
+				return "";
+			}
+			clearStoredDraft(sessionId);
+			armedFill = { sessionId: "", text: "", at: 0 };
+			return text;
+		}
+
 		function conversationFace() {
-			if (hostConversation) return hostConversation;
-			const host = hostCtx;
+			if (rewindConversation) return rewindConversation;
+			const host = rewindHost;
 			if (host?.conversation) return host.conversation;
 			if (typeof host?.get === "function") {
 				try { return host.get("conversation"); } catch { return undefined; }
@@ -3396,7 +3172,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				if (typeof input.shell === "function") {
 					try { return input.shell(sessionId); } catch { /* session not retained yet */ }
 				}
-				const sessions = hostCtx?.sessions || hostSessions;
+				const sessions = rewindHost?.sessions || rewindSessions;
 				const actx = typeof sessions?.scope === "function" ? sessions.scope(sessionId) : undefined;
 				if (typeof input.for === "function" && actx) return input.for(actx);
 				return null;
@@ -3435,6 +3211,64 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			}
 		}
 
+		function scheduleComposerFill(sessionId, text, inputActions) {
+			if (!sessionId || !text || isPluginDraft(text)) return () => {};
+			let stopped = false;
+			let filled = false;
+			const timers = [];
+			const tryFill = () => {
+				if (stopped) return;
+				const current = liveDraft(sessionId, inputActions);
+				if (filled && current !== text) {
+					stopped = true;
+					return;
+				}
+				if (current && current !== text) {
+					stopped = true;
+					return;
+				}
+				fillComposer(inputActions, text);
+				hostSetDraft(sessionId, text);
+				filled = true;
+			};
+			for (const ms of FILL_DELAYS) timers.push(window.setTimeout(tryFill, ms));
+			return () => {
+				stopped = true;
+				for (const t of timers) { try { window.clearTimeout(t); } catch { /* ignore */ } }
+			};
+		}
+
+		function scheduleEchoClear(sessionId, inputActions) {
+			if (!sessionId) return () => {};
+			let last = "";
+			let stopped = false;
+			const timers = [];
+			const tryClear = () => {
+				if (stopped || !last) return;
+				const current = String(liveDraft(sessionId, inputActions) || "").trim();
+				if (!current) {
+					stopped = true;
+					return;
+				}
+				if (current !== last) return;
+				fillComposer(inputActions, "");
+				hostSetDraft(sessionId, "");
+				clearStoredDraft(sessionId);
+				stopped = true;
+			};
+			apiJson("/dsh-purge/last-user?sessionId=" + encodeURIComponent(sessionId)).then((data) => {
+				if (stopped) return;
+				last = String(data?.text || "").trim();
+				if (!last || isPluginDraft(last)) return;
+				tryClear();
+				for (const ms of [0, 50, 180, 400]) timers.push(window.setTimeout(tryClear, ms));
+			}).catch(() => {});
+			return () => {
+				stopped = true;
+				for (const t of timers) { try { window.clearTimeout(t); } catch { /* ignore */ } }
+			};
+		}
+
 		async function dropInheritedQueue(sessions, sessionId) {
 			if (!sessions || !sessionId) return;
 			const drop = async () => {
@@ -3455,7 +3289,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		async function openRewoundSession(sessions, sessionId) {
 			if (!sessionId) return;
-			const workspace = hostWorkspace;
+			const workspace = rewindWorkspace;
 			let lastError = null;
 			for (let attempt = 0; attempt < 25; attempt += 1) {
 				if (sessions && typeof sessions.refresh === "function" && !sessionKnown(sessions, sessionId)) {
@@ -3469,7 +3303,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 						} else if (typeof sessions?.open === "function") {
 							sessions.open(sessionId);
 						} else {
-							throw new Error("无法打开回退后的会话");
+							throw new Error("Cannot open the rewound session");
 						}
 						const selected = workspace?.selection?.getSnapshot?.()?.sessionId;
 						if (!workspace || selected === sessionId) {
@@ -3483,7 +3317,17 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				}
 				await waitMs(120);
 			}
-			throw new Error((lastError && lastError.message) || "回退后的会话没有打开");
+			throw new Error((lastError && lastError.message) || "The rewound session did not open");
+		}
+
+		class RewindSafe extends Component {
+			constructor(p) { super(p); this.state = { failed: false }; }
+			static getDerivedStateFromError() { return { failed: true }; }
+			componentDidCatch(error) { try { console.error("[dsh-purge] rewind slot:", error); } catch { /* ignore */ } }
+			render() {
+				if (this.state.failed) return h(RewindFallback, this.props);
+				return h(RewindButton, this.props);
+			}
 		}
 
 		class ContinueSafe extends Component {
@@ -3495,10 +3339,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					return h("button", {
 						type: "button",
 						className: "dshp-continue",
-						title: rewindText(translate, "continue.label", "继续"),
+						title: rewindText(translate, "continue.label", "Continue"),
 						onMouseDown: (e) => e.preventDefault(),
 						onClick: async () => {
-							const sessionId = currentSessionId(hostSessions);
+							const sessionId = currentSessionId(rewindSessions);
 							if (!sessionId) return;
 							try {
 								const data = await apiJson("/dsh-purge/continue", {
@@ -3508,10 +3352,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 								});
 								if (!data || !data.ok) throw new Error((data && data.error) || "continue");
 							} catch (e) {
-								window.alert(rewindText(translate, "continue.fail", "继续失败: {error}").replace("{error}", String((e && e.message) || e)));
+								window.alert(rewindText(translate, "continue.fail", "Continue failed: {error}").replace("{error}", String((e && e.message) || e)));
 							}
 						},
-					}, rewindText(translate, "continue.label", "继续"));
+					}, rewindText(translate, "continue.label", "Continue"));
 				}
 				return h(ContinueButton, this.props);
 			}
@@ -3519,7 +3363,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		function ContinueButton(props) {
 			const t = props.t || translate;
-			const sessions = hostSessions;
+			const sessions = rewindSessions;
 			const sessionId = props.sessionId || currentSessionId(sessions);
 			const [busy, setBusy] = useState(false);
 			const [notice, setNotice] = useState("");
@@ -3559,26 +3403,26 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					if (!data || !data.ok) throw new Error((data && data.error) || "continue");
 					setInfo((prev) => prev ? { ...prev, ...data, canContinue: false, continueUsed: data.used } : data);
 				} catch (e) {
-					setNotice(rewindText(t, "continue.fail", "继续失败: {error}").replace("{error}", String((e && e.message) || e)));
+					setNotice(rewindText(t, "continue.fail", "Continue failed: {error}").replace("{error}", String((e && e.message) || e)));
 				} finally {
 					setBusy(false);
 				}
 			};
 
 			const label = busy
-				? rewindText(t, "continue.busy", "继续中…")
-				: rewindText(t, "continue.label", "继续");
+				? rewindText(t, "continue.busy", "Continuing…")
+				: rewindText(t, "continue.label", "Continue");
 			const title = notice
 				|| (canContinue
-					? rewindText(t, "continue.ready", "继续（还可 {left} 次）").replace("{left}", String(left))
+					? rewindText(t, "continue.ready", "Continue ({left} left)").replace("{left}", String(left))
 					: (info && info.reason && left <= 0
-						? rewindText(t, "continue.limit", "已达继续上限")
-						: rewindText(t, "continue.aria", "异常停止后继续")));
+						? rewindText(t, "continue.limit", "Continue limit reached")
+						: rewindText(t, "continue.aria", "Continue after an abnormal stop")));
 			return h("button", {
 				type: "button",
 				className: "dshp-continue" + (canContinue ? " is-ready" : ""),
 				title,
-				"aria-label": rewindText(t, "continue.aria", "异常停止后继续"),
+				"aria-label": rewindText(t, "continue.aria", "Continue after an abnormal stop"),
 				disabled: busy || !sessionId || !canContinue,
 				onMouseDown: (e) => e.preventDefault(),
 				onClick: (e) => {
@@ -3592,6 +3436,241 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				),
 				label,
 			);
+		}
+
+		function rewindMenuNode(t, menuPos, menuRef, runRewind) {
+			const menu = h("div", {
+				className: "dshp-rewind-menu",
+				role: "menu",
+				ref: menuRef,
+				style: menuPos ? { left: menuPos.left + "px", top: menuPos.top + "px" } : { left: "8px", bottom: "48px", transform: "none" },
+			},
+				h("button", {
+					type: "button",
+					className: "dshp-rewind-item",
+					onMouseDown: (e) => { e.preventDefault(); e.stopPropagation(); },
+					onClick: (e) => { e.preventDefault(); e.stopPropagation(); runRewind("once"); },
+				},
+					h("b", null, rewindText(t, "rewind.once", "Undo last step")),
+					h("span", null, rewindText(t, "rewind.once.hint", "Withdraw the last step into a new session that keeps earlier context; the line returns to the box")),
+				),
+				h("button", {
+					type: "button",
+					className: "dshp-rewind-item",
+					onMouseDown: (e) => { e.preventDefault(); e.stopPropagation(); },
+					onClick: (e) => { e.preventDefault(); e.stopPropagation(); runRewind("round"); },
+				},
+					h("b", null, rewindText(t, "rewind.round", "Undo last turn")),
+					h("span", null, rewindText(t, "rewind.round.hint", "Withdraw the last turn (and its subagents) into a new session that keeps earlier context; the line returns to the box")),
+				),
+			);
+			try {
+				const rd = require("react-dom");
+				if (rd && typeof rd.createPortal === "function" && typeof document !== "undefined") {
+					return rd.createPortal(menu, document.body);
+				}
+			} catch { /* 没有 portal 时菜单仍挂在按钮旁 */ }
+			return menu;
+		}
+
+		class RewindFallback extends Component {
+			constructor(p) {
+				super(p);
+				this.state = { menu: false, busy: false, notice: "", menuPos: null };
+				this.wrap = null;
+				this.menuEl = null;
+				this.onDoc = (event) => {
+					if (this.wrap && this.wrap.contains(event.target)) return;
+					if (this.menuEl && this.menuEl.contains(event.target)) return;
+					this.setState({ menu: false });
+				};
+			}
+			componentDidMount() {
+				document.addEventListener("mousedown", this.onDoc);
+			}
+			componentWillUnmount() {
+				document.removeEventListener("mousedown", this.onDoc);
+			}
+			run(mode) {
+				const sessionId = this.props.sessionId || currentSessionId(rewindSessions);
+				if (!sessionId || this.state.busy) return;
+				this.setState({ busy: true, menu: false, notice: "" });
+				apiJson("/dsh-purge/rewind", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ sessionId, mode }),
+				}).then(async (data) => {
+					if (!data || !data.ok || !data.sessionId || data.cleared === false) {
+						throw new Error((data && data.error) || "The previously sent content was not cleared");
+					}
+					if (data.at) rewindSeenAt = data.at;
+					const text = isPluginDraft(data.text) ? "" : (data.text || "");
+					armComposerFill(data.sessionId, text);
+					await openRewoundSession(rewindSessions, data.sessionId);
+					scheduleComposerFill(data.sessionId, text);
+					this.setState({ busy: false });
+				}).catch((e) => {
+					this.setState({
+						busy: false,
+						notice: "Undo failed: " + String((e && e.message) || e),
+					});
+				});
+			}
+			openMenu() {
+				const rect = this.wrap && this.wrap.getBoundingClientRect ? this.wrap.getBoundingClientRect() : null;
+				this.setState({
+					menu: !this.state.menu,
+					notice: "",
+					menuPos: rect ? { left: Math.max(8, rect.right - 228), top: Math.max(8, rect.top - 8) } : null,
+				});
+			}
+			render() {
+				const sessionId = this.props.sessionId || currentSessionId(rewindSessions);
+				const t = this.props.t || translate;
+				const label = this.state.busy ? "Undoing…" : (this.state.notice ? this.state.notice.slice(0, 18) : "Undo");
+				return h("div", { className: "dshp-rewind-wrap", ref: (node) => { this.wrap = node; } },
+					h("style", null, REWIND_CSS),
+					h("button", {
+						type: "button",
+						className: "dshp-rewind",
+						disabled: this.state.busy || !sessionId,
+						onMouseDown: (e) => e.preventDefault(),
+						onClick: (e) => { e.preventDefault(); this.openMenu(); },
+					}, label),
+					this.state.menu ? rewindMenuNode(t, this.state.menuPos, (node) => { this.menuEl = node; }, (mode) => this.run(mode)) : null,
+				);
+			}
+		}
+
+		function RewindButton(props) {
+			const t = props.t || translate;
+			const sessions = rewindSessions;
+			const inputActions = props.inputActions;
+			const sessionId = props.sessionId || currentSessionId(sessions);
+			const wrapRef = useRef(null);
+			const menuRef = useRef(null);
+			const [busy, setBusy] = useState(false);
+			const [notice, setNotice] = useState("");
+			const [menu, setMenu] = useState(false);
+			const [menuPos, setMenuPos] = useState(null);
+
+			useEffect(() => {
+				if (!sessionId) return;
+				const armed = takeArmedFill(sessionId);
+				if (armed) {
+					scheduleComposerFill(sessionId, armed, inputActions);
+					return;
+				}
+				scheduleEchoClear(sessionId, inputActions);
+			}, [sessionId, inputActions]);
+
+			useEffect(() => {
+				if (!menu) return;
+				const onDoc = (event) => {
+					if (wrapRef.current && wrapRef.current.contains(event.target)) return;
+					if (menuRef.current && menuRef.current.contains(event.target)) return;
+					setMenu(false);
+				};
+				document.addEventListener("mousedown", onDoc);
+				return () => document.removeEventListener("mousedown", onDoc);
+			}, [menu]);
+
+			const runRewind = async (mode) => {
+				if (!sessionId || busy) return;
+				setBusy(true);
+				setMenu(false);
+				setNotice("");
+				try {
+					const data = await apiJson("/dsh-purge/rewind", {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ sessionId, mode }),
+					});
+					if (!data || !data.ok || !data.sessionId || data.cleared === false) {
+						throw new Error((data && data.error) || "The previously sent content was not cleared");
+					}
+					if (data.at) rewindSeenAt = data.at;
+					const text = isPluginDraft(data.text) ? "" : (data.text || "");
+					armComposerFill(data.sessionId, text);
+					await openRewoundSession(sessions, data.sessionId);
+					scheduleComposerFill(data.sessionId, text);
+				} catch (e) {
+					const message = rewindText(t, "rewind.fail", "Undo failed: {error}").replace("{error}", String((e && e.message) || e));
+					setNotice(message);
+				} finally {
+					setBusy(false);
+				}
+			};
+
+			const onClick = (event) => {
+				event?.preventDefault?.();
+				event?.stopPropagation?.();
+				if (!sessionId || busy) return;
+				if (menu) {
+					setMenu(false);
+					return;
+				}
+				const rect = wrapRef.current?.getBoundingClientRect?.();
+				if (rect) {
+					setMenuPos({
+						left: Math.max(8, rect.right - 228),
+						top: Math.max(8, rect.top - 8),
+					});
+				}
+				setNotice("");
+				setMenu(true);
+			};
+
+			const failLabel = notice
+				? (notice.length > 18 ? notice.slice(0, 18) + "…" : notice)
+				: "";
+			const label = busy
+				? rewindText(t, "rewind.busy", "Undoing…")
+				: (failLabel || rewindText(t, "rewind.label", "Undo"));
+			const title = notice || rewindText(t, "rewind.aria", "Undo");
+			return h("div", { className: "dshp-rewind-wrap", ref: wrapRef },
+				h("style", null, REWIND_CSS),
+				h("button", {
+					type: "button",
+					className: "dshp-rewind",
+					title,
+					"aria-label": rewindText(t, "rewind.aria", "Undo"),
+					"aria-expanded": menu ? "true" : "false",
+					disabled: busy || !sessionId,
+					onMouseDown: (e) => e.preventDefault(),
+					onClick,
+				},
+					h("svg", { viewBox: "0 0 16 16", width: "14", height: "14", "aria-hidden": true },
+						h("path", {
+							fill: "currentColor",
+							d: "M7.2 3.2 3.4 7l3.8 3.8V8.6c2.8 0 4.7.7 5.9 2.3-.2-2.8-1.9-5.2-5.9-5.6V3.2z",
+						}),
+					),
+					label,
+				),
+				menu ? rewindMenuNode(t, menuPos, menuRef, runRewind) : null,
+			);
+		}
+
+		function installRewindWatch(ctx) {
+			const sessions = ctx.sessions;
+			if (!sessions) return () => {};
+			const tick = async () => {
+				try {
+					const data = await apiJson("/dsh-purge/rewind");
+					if (!data || !data.sessionId || !data.at || data.at <= rewindSeenAt) return;
+					rewindSeenAt = data.at;
+					const current = currentSessionId(sessions);
+					if (current && current !== data.parentId) return;
+					const text = isPluginDraft(data.text) ? "" : (data.text || "");
+					armComposerFill(data.sessionId, text);
+					scheduleComposerFill(data.sessionId, text);
+					await openRewoundSession(sessions, data.sessionId);
+					scheduleComposerFill(data.sessionId, text);
+				} catch { /* ignore */ }
+			};
+			const timer = window.setInterval(tick, 1200);
+			return () => window.clearInterval(timer);
 		}
 
 		/* __DSH_PURGE_DRILL_BEGIN__ */
@@ -3610,15 +3689,27 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
     /*
      * 演练台自己是一块浮动窗：position:fixed，用 left/top/width/height 放。
      * 不给官方 frame 加 padding，不改官方输入框的宽度。嵌在清洗面板里时走 .rt-embedded。
-     * 外观按宿主 token：不透明层一底 + 0.5px 描边 + xl 圆角 + 官方抬升阴影，不再用玻璃模糊。
      */
     const CSS = `
 .rt-dock{position:fixed;top:12px;right:12px;z-index:20;display:flex;flex-direction:column;box-sizing:border-box;
-  background:var(--dsw-alias-bg-layer-1,#fff);
-  border:.5px solid var(--dsw-alias-border-l3,#d5d5d5);
-  border-radius:var(--dsw-radius-xl,20px);
-  box-shadow:var(--dsw-elevation-prominent,0 18px 48px rgba(0,0,0,.24));pointer-events:auto;color:var(--dsw-alias-label-primary);
-  font-size:13px;line-height:20px}
+  --rt-glass:blur(18px) saturate(1.35);--rt-ease:cubic-bezier(.22,1,.36,1);
+  --rt-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);
+  --rt-paper-2:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#f3f0e8) 38%,transparent);
+  --rt-well:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 32%,transparent);
+  --rt-fill:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 14%,transparent);
+  --rt-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);
+  --rt-line-2:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 50%,transparent);
+  --rt-hi:color-mix(in srgb,#fff 42%,transparent);
+  --rt-ink:var(--dsw-alias-label-primary,#16140f);
+  --rt-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#16140f) 72%,var(--dsw-alias-label-secondary,#5c564c));
+  --rt-accent:var(--dsw-alias-brand-primary,#3d8f68);
+  --rt-ok:#2f6b4f;--rt-warn:#8a5a12;--rt-bad:#9a3434;
+  background:var(--rt-paper);
+  backdrop-filter:var(--rt-glass);-webkit-backdrop-filter:var(--rt-glass);
+  border:1px solid var(--rt-line);
+  border-radius:12px;
+  box-shadow:inset 0 1px 0 var(--rt-hi),0 16px 40px color-mix(in srgb,#000 16%,transparent);
+  pointer-events:auto;color:var(--rt-ink);font-family:inherit;font-size:13px;line-height:1.5}
 .rt-dock.rt-embedded{position:relative;inset:auto;width:100%;height:100%;max-width:none;border:0;border-radius:0;box-shadow:none;background:transparent!important;backdrop-filter:none;-webkit-backdrop-filter:none}
 .rt-grip,.rt-resize-r,.rt-resize-b,.rt-resize-c{position:absolute;z-index:3;touch-action:none}
 .rt-grip{left:-3px;top:0;bottom:0;width:8px;cursor:ew-resize;background:transparent}
@@ -3630,9 +3721,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
 .rt-spacer{flex:1}
 .rt-btn{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:inherit;
-  border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;white-space:nowrap;-webkit-text-fill-color:currentColor;overflow:visible}
 .rt-btn:hover{border-color:var(--dsw-alias-border-l2)}
-.rt-btn-primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:#fff}
+.rt-btn-primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:#fff;-webkit-text-fill-color:#fff}
 .rt-btn-primary:hover{opacity:.9}
 .rt-btn:disabled{opacity:.5;cursor:default}
 .rt-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
@@ -3641,8 +3732,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-tab:hover{color:var(--dsw-alias-label-primary)}
 .rt-tab.on{color:var(--dsw-alias-label-primary);background:transparent;font-weight:600;border-bottom-color:var(--dsw-alias-brand-primary,#6dbf8c)}
 /* 未读红点：该页签有新内容（新资产/新漏洞/新得分/新步骤…），点开看过就消失 */
-.rt-tab-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-error-primary,#ef4444);flex:none;
-  box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-error-primary,#ef4444) 22%, transparent)}
+.rt-tab-dot{width:7px;height:7px;border-radius:50%;background:#ef4444;flex:none;
+  box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 22%, transparent)}
 .rt-body{flex:1;min-height:0;display:flex;flex-direction:column}
 .rt-split{flex:1;min-height:0;display:flex}
 .rt-side{width:200px;flex:none;border-right:1px solid var(--dsw-alias-border-l1);overflow:auto;padding:8px}
@@ -3669,22 +3760,22 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-tag{display:inline-block;padding:0 5px;border-radius:4px;font-size:11px;margin-right:4px;
   border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .rt-tag-passive{color:#8b5cf6;border-color:#8b5cf655;background:#8b5cf61a}
-.rt-tag-active{color:var(--dsw-alias-state-warn-primary,#f59e0b);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent)}
-.rt-tag-live{color:var(--dsw-alias-state-success-primary,#22c55e);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}
-.rt-tag-warn{color:var(--dsw-alias-state-error-primary,#ef4444);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)}
+.rt-tag-active{color:#f59e0b;border-color:#f59e0b55;background:#f59e0b1a}
+.rt-tag-live{color:#10b981;border-color:#10b98155;background:#10b9811a}
+.rt-tag-warn{color:#ef4444;border-color:#ef444455;background:#ef44441a}
 /* 纪律提示条：不满足交付要求（非冰蝎/哥斯拉马、没有 suo5 隧道）时顶在区块最上方 */
 .rt-hint{border-radius:6px;padding:7px 9px;margin-bottom:8px;font-size:11.5px;line-height:1.6;
-  border:1px dashed color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent);color:var(--dsw-alias-label-primary)}
-.rt-hint b{color:var(--dsw-alias-state-error-primary,#ef4444)}
+  border:1px dashed #ef444488;background:#ef44440f;color:var(--dsw-alias-label-primary)}
+.rt-hint b{color:#ef4444}
 .rt-tag-dead{color:var(--dsw-alias-label-secondary)}
 .rt-expand{grid-column:1/-1;padding:8px 4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .rt-kv{display:flex;gap:8px;margin-bottom:3px;align-items:baseline}
 .rt-kv b{color:var(--dsw-alias-label-primary);font-weight:600;min-width:64px;flex:none}
 /* 图谱视图已移除（见 AssetsTab：资产关系由「域名维度」与 redteam_attack_path 工具承担） */
 .rt-pane{flex:1;min-height:0;overflow:auto;padding:12px}
-.rt-card{border:.5px solid var(--dsw-alias-border-l2,#e8e8e8);border-radius:var(--dsw-radius-md,12px);padding:10px 12px;margin-bottom:10px;
-  background:transparent}
-.rt-card h4{margin:0 0 6px;font-size:13px;font-weight:500}
+.rt-card{border:1px solid color-mix(in srgb,var(--dsw-alias-border-l1,#444) 75%,transparent);border-radius:8px;padding:10px;margin-bottom:10px;
+  background:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#2a2a2a) 48%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.rt-card h4{margin:0 0 6px;font-size:13px}
 .rt-textarea{width:100%;min-height:260px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);
   color:inherit;border-radius:6px;padding:8px;font-size:12.5px;font-family:ui-monospace,Menlo,monospace;
   line-height:1.6;resize:vertical;outline:none;box-sizing:border-box}
@@ -3710,15 +3801,15 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-hbtn.on{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}
 .rt-test{display:inline-block;padding:0 5px;border-radius:4px;font-size:11px;white-space:nowrap;
   border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
-.rt-test-testing{color:var(--dsw-alias-state-warn-primary,#f59e0b);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent)}
-.rt-test-tested{color:var(--dsw-alias-state-success-primary,#22c55e);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}
-.rt-test-blocked{color:#fff;background:var(--dsw-alias-state-error-primary,#ef4444);border-color:var(--dsw-alias-state-error-primary,#ef4444)}
+.rt-test-testing{color:#f59e0b;border-color:#f59e0b55;background:#f59e0b1a}
+.rt-test-tested{color:#10b981;border-color:#10b98155;background:#10b9811a}
+.rt-test-blocked{color:#fff;background:#ef4444;border-color:#ef4444}
 .rt-test-abandoned{color:#94a3b8;border-color:#94a3b855;background:#94a3b81a}
 .rt-test-no_surface{color:#6366f1;border-color:#6366f155;background:#6366f11a}
 .rt-scope-testing{color:#5b21b6;background:#ddd6fe}
 .rt-pri{display:inline-block;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
-.rt-pri-high{color:#fff;background:var(--dsw-alias-state-error-primary,#ef4444)}
-.rt-pri-medium{color:#fff;background:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.rt-pri-high{color:#fff;background:#ef4444}
+.rt-pri-medium{color:#fff;background:#f59e0b}
 .rt-pri-low{color:#fff;background:#94a3b8}
 .rt-score-row{display:grid;grid-template-columns:16px 62px minmax(0,1fr) 116px 66px;gap:8px;padding:7px 10px;
   border-bottom:1px solid var(--dsw-alias-border-l1);align-items:center;font-size:12.5px;cursor:pointer}
@@ -3756,8 +3847,20 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-link{color:var(--dsw-alias-brand-primary);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rt-link:hover{text-decoration:underline}
 .rt-full{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
-  background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;
-  border-top:1px solid var(--dsw-alias-brand-primary)}
+  --rt-glass:blur(18px) saturate(1.35);--rt-ease:cubic-bezier(.22,1,.36,1);
+  --rt-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fffcf7) 46%,transparent);
+  --rt-paper-2:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#f3f0e8) 38%,transparent);
+  --rt-well:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 32%,transparent);
+  --rt-fill:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 14%,transparent);
+  --rt-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 34%,transparent);
+  --rt-hi:color-mix(in srgb,#fff 42%,transparent);
+  --rt-ink:var(--dsw-alias-label-primary,#16140f);
+  --rt-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#16140f) 72%,var(--dsw-alias-label-secondary,#5c564c));
+  --rt-accent:var(--dsw-alias-brand-primary,#3d8f68);
+  --rt-ok:#2f6b4f;--rt-warn:#8a5a12;--rt-bad:#9a3434;
+  background:var(--rt-paper);color:var(--rt-ink);font-family:inherit;font-size:13px;line-height:1.5;
+  backdrop-filter:var(--rt-glass);-webkit-backdrop-filter:var(--rt-glass);
+  border:1px solid var(--rt-line);box-shadow:inset 0 1px 0 var(--rt-hi)}
 .rt-full .rt-head{padding:12px 18px}
 .rt-full .rt-tabs{padding:10px 18px 0;gap:6px;flex-wrap:wrap}
 .rt-full .rt-side{width:260px}
@@ -3769,37 +3872,37 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-full .rt-foot{padding:10px 18px;font-size:12px}
 .rt-full .rt-body{max-width:1400px;width:100%;margin:0 auto;flex:1;min-height:0;display:flex;flex-direction:column}
 .rt-chain{flex:1;overflow:auto;padding:10px 12px}
-.rt-step{display:flex;gap:10px;padding:8px 6px;border-left:1px solid var(--dsw-alias-border-l1);margin-left:6px}
+.rt-step{display:flex;gap:10px;padding:8px 6px;border-left:2px solid var(--dsw-alias-border-l1);margin-left:6px}
 .rt-step:last-child{border-left-color:transparent}
 .rt-step-dot{width:22px;height:22px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#fff;background:var(--dsw-alias-border-l3,#64748b);margin-left:-13px}
+  font-size:11px;font-weight:700;color:#fff;background:#64748b;margin-left:-13px}
 .rt-step-body{min-width:0}
 .rt-step-title{font-weight:600;font-size:13px}
 .rt-step-meta{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:2px;word-break:break-word}
 .rt-stage-recon{background:#6366f1}
-.rt-stage-vuln{background:var(--dsw-alias-state-warn-primary,#f59e0b)}
-.rt-stage-exploit{background:var(--dsw-alias-state-error-primary,#ef4444)}
-.rt-stage-access{background:var(--dsw-alias-state-success-primary,#22c55e)}
+.rt-stage-vuln{background:#f59e0b}
+.rt-stage-exploit{background:#ef4444}
+.rt-stage-access{background:#10b981}
 .rt-stage-pivot{background:#8b5cf6}
 .rt-stage-data{background:#0ea5e9}
-.rt-stage-other{background:var(--dsw-alias-border-l3,#64748b)}
+.rt-stage-other{background:#64748b}
 .rt-step-head{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .rt-step-time{font-size:11px;color:var(--dsw-alias-label-secondary);margin-left:auto;white-space:nowrap}
 .rt-step-detail{font-size:12px;margin-top:5px;white-space:pre-wrap;word-break:break-word;
-  border-left:1px solid var(--dsw-alias-border-l1);padding:2px 0 2px 9px;line-height:1.6}
+  border-left:2px solid var(--dsw-alias-border-l1);padding:2px 0 2px 9px;line-height:1.6}
 .rt-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:1px 7px;border-radius:5px;
   border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);margin:4px 5px 0 0;max-width:100%}
 .rt-chip>i{font-style:normal;color:var(--dsw-alias-label-secondary);font-size:10.5px}
 .rt-chip>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:420px}
 .rt-stage-tag{display:inline-block;padding:0 6px;border-radius:4px;font-size:11px;color:#fff;font-weight:600}
-.rt-st-recon{background:#6366f1}.rt-st-vuln{background:var(--dsw-alias-state-warn-primary,#f59e0b)}.rt-st-exploit{background:var(--dsw-alias-state-error-primary,#ef4444)}
-.rt-st-access{background:var(--dsw-alias-state-success-primary,#22c55e)}.rt-st-pivot{background:#8b5cf6}.rt-st-data{background:#0ea5e9}.rt-st-other{background:var(--dsw-alias-border-l3,#64748b)}
+.rt-st-recon{background:#6366f1}.rt-st-vuln{background:#f59e0b}.rt-st-exploit{background:#ef4444}
+.rt-st-access{background:#10b981}.rt-st-pivot{background:#8b5cf6}.rt-st-data{background:#0ea5e9}.rt-st-other{background:#64748b}
 .rt-sev{display:inline-block;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid transparent}
-.rt-sev-critical{color:#fff;background:#b91c1c}.rt-sev-high{color:#fff;background:var(--dsw-alias-state-error-primary,#ef4444)}
+.rt-sev-critical{color:#fff;background:#b91c1c}.rt-sev-high{color:#fff;background:#ef4444}
 .rt-sev-medium{color:#7c2d12;background:#fdba74}.rt-sev-low{color:#1e3a8a;background:#bfdbfe}
 .rt-sev-info{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l1)}
-.rt-dot-on{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}
-.rt-dot-off{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-error-primary,#ef4444);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)}
+.rt-dot-on{display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px #10b98133}
+.rt-dot-off{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px #ef444433}
 .rt-dot-unk{display:inline-block;width:7px;height:7px;border-radius:50%;background:#94a3b8;box-shadow:0 0 0 3px #94a3b833}
 .rt-sess-grid{display:grid;grid-template-columns:1fr;gap:8px;padding:10px 12px}
 .rt-sess{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:9px 10px;background:var(--dsw-alias-bg-layer-2)}
@@ -3815,10 +3918,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-evi-body{margin:0;padding:9px 11px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.6;
   white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;background:var(--dsw-alias-bg-base)}
 .rt-evi-body.req{max-height:220px}
-.rt-hl-req{color:var(--dsw-alias-state-success-primary,#22c55e);font-weight:600}
+.rt-hl-req{color:#10b981;font-weight:600}
 .rt-hl-res{color:#0ea5e9;font-weight:600}
 .rt-gain{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:12px;
-  color:#065f46;background:#a7f3d0;border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}
+  color:#065f46;background:#a7f3d0;border:1px solid #10b98155}
 .rt-total{font-size:20px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
 .rt-sidehead{padding:7px 8px 2px;font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary);
   display:flex;align-items:center;gap:5px}
@@ -3829,37 +3932,37 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-scope-internal{color:#0e7490;background:#a5f3fc}
 .rt-scope-external{color:#9a3412;background:#fed7aa}
 .rt-hits{display:flex;flex-direction:column;gap:6px;margin-top:7px}
-.rt-hit{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:6px;
+.rt-hit{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #10b981;border-radius:6px;
   padding:7px 9px;background:var(--dsw-alias-bg-layer-2)}
 .rt-hit-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.rt-hit-idx{width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);color:#fff;font-size:10.5px;font-weight:700;
+.rt-hit-idx{width:16px;height:16px;border-radius:50%;background:#10b981;color:#fff;font-size:10.5px;font-weight:700;
   display:inline-flex;align-items:center;justify-content:center;flex:none}
 .rt-hit-target{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:12px;word-break:break-all}
 .rt-hit-time{margin-left:auto;font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .rt-hit-evi{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;
   background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:5px;padding:6px 8px;margin-top:5px}
 .rt-hit-note{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:4px}
-.rt-cred{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b));border-radius:6px;
+.rt-cred{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #f59e0b;border-radius:6px;
   padding:8px 10px;background:var(--dsw-alias-bg-layer-2);margin-bottom:7px}
 .rt-cred-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .rt-cred-host{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:12.5px;word-break:break-all}
 .rt-secret{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.6;background:#fef3c7;color:#78350f;
-  border:1px solid color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent);border-radius:5px;padding:6px 9px;margin-top:6px;white-space:pre-wrap;word-break:break-all;
+  border:1px solid #f59e0b66;border-radius:5px;padding:6px 9px;margin-top:6px;white-space:pre-wrap;word-break:break-all;
   user-select:all;cursor:text}
 .rt-secret-none{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--dsw-alias-state-error-primary);
   border:1px dashed var(--dsw-alias-state-error-primary);border-radius:5px;padding:5px 9px;margin-top:6px}
 .rt-cred-meta{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:5px;word-break:break-word}
-.rt-stage-score{background:var(--dsw-alias-state-success-primary,#22c55e)}
-.rt-counted{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#065f46;background:#a7f3d0;border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);border-radius:9px;padding:0 7px}
-.rt-scorepts{font-size:11.5px;font-weight:700;color:#065f46;background:#a7f3d0;border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);
+.rt-stage-score{background:#10b981}
+.rt-counted{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#065f46;background:#a7f3d0;border:1px solid #10b98155;border-radius:9px;padding:0 7px}
+.rt-scorepts{font-size:11.5px;font-weight:700;color:#065f46;background:#a7f3d0;border:1px solid #10b98155;
   border-radius:10px;padding:0 7px;white-space:nowrap}
 .rt-livebar{display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);
   background:var(--dsw-alias-bg-layer-2);flex-wrap:wrap}
-.rt-live-dot{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);flex:none;animation:rt-pulse 1.6s ease-in-out infinite}
+.rt-live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;flex:none;animation:rt-pulse 1.6s ease-in-out infinite}
 .rt-live-dot.idle{background:#94a3b8;animation:none}
-@keyframes rt-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}50%{opacity:.5;box-shadow:0 0 0 5px color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}}
+@keyframes rt-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 #10b98166}50%{opacity:.5;box-shadow:0 0 0 5px #10b98100}}
 .rt-live-body{padding:8px 12px 2px;max-height:44vh;overflow:auto}
-.rt-atest{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:6px;
+.rt-atest{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #10b981;border-radius:6px;
   padding:7px 10px;background:var(--dsw-alias-bg-layer-2);margin-bottom:6px}
 .rt-atest.past{border-left-color:#94a3b8;opacity:.85}
 .rt-atest-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -3889,7 +3992,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
    ──────────────────────────────────────────────────────────────────────────── */
 .rt-sec-wrap{margin:0}
 .rt-sec{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 9px;cursor:pointer;
-  background:var(--dsw-alias-bg-layer-2);border-left:1px solid var(--dsw-alias-border-l2);
+  background:var(--dsw-alias-bg-layer-2);border-left:3px solid var(--dsw-alias-border-l2);
   border-top:1px solid var(--dsw-alias-border-l1);user-select:none;outline:none}
 .rt-sec:hover{background:var(--dsw-alias-bg-layer-1)}
 .rt-sec:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
@@ -3902,9 +4005,9 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-sec-right{margin-left:auto;font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;flex:none}
 .rt-sec.t-stage{border-left-color:#8b5cf6}
 .rt-sec.t-target{border-left-color:#0ea5e9}
-.rt-sec.t-folder{border-left-color:var(--dsw-alias-border-l3,#64748b)}
-.rt-sec.t-test{border-left-color:var(--dsw-alias-state-success-primary,#22c55e)}
-.rt-sec.t-queue{border-left-color:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.rt-sec.t-folder{border-left-color:#64748b}
+.rt-sec.t-test{border-left-color:#10b981}
+.rt-sec.t-queue{border-left-color:#f59e0b}
 .rt-sec.t-past{border-left-color:#94a3b8}
 .rt-sec-body{margin-left:12px;border-left:1px solid var(--dsw-alias-border-l1);padding:7px 0 3px 10px}
 .rt-sec-body>.rt-atest:last-child,.rt-sec-body>.rt-hit:last-child{margin-bottom:2px}
@@ -3924,18 +4027,18 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-flow-arrow{color:var(--dsw-alias-border-l2);font-size:11px;flex:none}
 .rt-flow-action{font-size:11.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rt-flow-action.inferred{opacity:.7;font-style:italic}
-.rt-flow-node{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:8px;
+.rt-flow-node{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #10b981;border-radius:8px;
   padding:8px 11px;background:var(--dsw-alias-bg-layer-2);cursor:pointer;outline:none}
 .rt-flow-node:hover{border-color:var(--dsw-alias-border-l2)}
 .rt-flow-node:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
 .rt-flow-node.overflow{border-left-color:#94a3b8;opacity:.75}
 .rt-flow-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.rt-flow-idx{width:18px;height:18px;border-radius:50%;background:var(--dsw-alias-state-success-primary,#22c55e);color:#fff;font-size:11px;font-weight:700;
+.rt-flow-idx{width:18px;height:18px;border-radius:50%;background:#10b981;color:#fff;font-size:11px;font-weight:700;
   display:inline-flex;align-items:center;justify-content:center;flex:none}
 .rt-flow-node.overflow .rt-flow-idx{background:#94a3b8}
 .rt-flow-name{font-weight:600;font-size:13px}
 .rt-flow-pts{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;color:#065f46;
-  background:#a7f3d0;border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);border-radius:10px;padding:0 8px;white-space:nowrap}
+  background:#a7f3d0;border:1px solid #10b98155;border-radius:10px;padding:0 8px;white-space:nowrap}
 .rt-flow-pts.off{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l1)}
 .rt-flow-times{font-size:11px;color:var(--dsw-alias-label-secondary)}
 .rt-flow-target{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;margin-top:4px;word-break:break-all;
@@ -3949,7 +4052,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-hflow-end{font-weight:600;color:var(--dsw-alias-label-primary)}
 .rt-hflow-arrow{color:var(--dsw-alias-border-l2);padding:0 5px;font-size:13px;flex:none}
 .rt-hflow-node{display:flex;align-items:center;gap:5px;border:1px solid var(--dsw-alias-border-l1);
-  border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:7px;padding:5px 8px;background:var(--dsw-alias-bg-layer-2);
+  border-left:3px solid #10b981;border-radius:7px;padding:5px 8px;background:var(--dsw-alias-bg-layer-2);
   cursor:pointer;white-space:nowrap;outline:none}
 .rt-hflow-node:hover{border-color:var(--dsw-alias-border-l2)}
 .rt-hflow-node:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
@@ -3962,10 +4065,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-hflow-n{font-size:10.5px;color:var(--dsw-alias-label-secondary)}
 .rt-rep-list{padding:10px 12px 14px}
 .rt-rep-tools{display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px}
-.rt-rep{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:8px;
+.rt-rep{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #10b981;border-radius:8px;
   padding:9px 11px;margin-bottom:10px;background:var(--dsw-alias-bg-layer-2)}
 .rt-rep-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.rt-rep-idx{font-size:15px;color:var(--dsw-alias-state-success-primary,#22c55e);font-weight:700;flex:none}
+.rt-rep-idx{font-size:15px;color:#10b981;font-weight:700;flex:none}
 .rt-rep-name{font-weight:600;font-size:13px}
 .rt-rep-meta{font-size:12px;margin-top:4px;color:var(--dsw-alias-label-secondary);word-break:break-word}
 .rt-rep-meta b{color:var(--dsw-alias-label-primary);font-weight:600;margin-right:2px}
@@ -3981,7 +4084,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-rep-trace-head{display:flex;align-items:center;gap:7px;margin-bottom:5px}
 .rt-rep-trace-title{font-weight:600;font-size:12.5px}
 .rt-rep-trace-how{font-size:12px;color:var(--dsw-alias-label-secondary);margin-bottom:6px}
-.rt-rep-step{border-left:1px solid var(--dsw-alias-border-l1);padding:2px 0 6px 9px;margin-bottom:6px}
+.rt-rep-step{border-left:2px solid var(--dsw-alias-border-l1);padding:2px 0 6px 9px;margin-bottom:6px}
 .rt-rep-step-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .rt-rep-step-no{width:17px;height:17px;border-radius:50%;background:var(--dsw-alias-brand-primary);color:#fff;
   font-size:10.5px;display:flex;align-items:center;justify-content:center;flex:none}
@@ -3997,24 +4100,24 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-ap{padding:10px 12px 18px;overflow:auto}
 .rt-ap-stage{margin-bottom:2px}
 .rt-ap-head{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--dsw-alias-bg-layer-2);
-  border-left:1px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l3,#64748b));border-top:1px solid var(--dsw-alias-border-l1);border-radius:6px 6px 0 0}
+  border-left:4px solid #64748b;border-top:1px solid var(--dsw-alias-border-l1);border-radius:6px 6px 0 0}
 .rt-ap-no{width:20px;height:20px;border-radius:5px;color:#fff;font-size:11px;font-weight:700;flex:none;
   display:inline-flex;align-items:center;justify-content:center}
 .rt-ap-name{font-weight:700;font-size:13.5px}
 .rt-ap-en{font-size:10px;color:var(--dsw-alias-label-secondary);letter-spacing:.3px}
 .rt-ap-phase{font-size:10.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .rt-ap-goal{display:flex;align-items:baseline;gap:8px;padding:6px 10px 6px 9px;font-size:12px;
-  border-left:1px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l3,#64748b));background:var(--dsw-alias-bg-layer-1)}
+  border-left:4px solid #64748b;background:var(--dsw-alias-bg-layer-1)}
 .rt-ap-goal-tag{font-size:10.5px;font-weight:700;border:1px solid;border-radius:4px;padding:0 5px;white-space:nowrap;flex:none}
 .rt-ap-result{padding:7px 10px 3px;border-left:4px solid transparent}
 .rt-ap-result-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
 .rt-ap-pts{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:700;color:#065f46;background:#a7f3d0;
-  border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);border-radius:10px;padding:0 7px;white-space:nowrap}
+  border:1px solid #10b98155;border-radius:10px;padding:0 7px;white-space:nowrap}
 .rt-ap-pts.off{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l1)}
 /* 按服务封顶/自建而不计分的命中：分值标灰（+0），避免看着像又加了分 */
 .rt-ap-pts.uncounted{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l1)}
 .rt-ap-nth{font-size:10.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
-.rt-ap-hit{border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-success-primary,#22c55e);border-radius:6px;
+.rt-ap-hit{border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #10b981;border-radius:6px;
   padding:6px 9px;margin-bottom:5px;background:var(--dsw-alias-bg-layer-2);cursor:pointer;outline:none}
 .rt-ap-hit:hover{border-color:var(--dsw-alias-border-l2)}
 .rt-ap-hit:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
@@ -4033,7 +4136,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-ap-col{display:flex;align-items:stretch;flex:none}
 .rt-ap-col-arrow{align-self:center;color:var(--dsw-alias-border-l2);padding:0 6px;font-size:12px;flex:none}
 .rt-hcol{width:228px;display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1);
-  border-top:1px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l3,#64748b));border-radius:7px;background:var(--dsw-alias-bg-layer-1);overflow:hidden}
+  border-top:3px solid #64748b;border-radius:7px;background:var(--dsw-alias-bg-layer-1);overflow:hidden}
 .rt-hcol-goal{font-size:11px;color:var(--dsw-alias-label-secondary);padding:5px 8px;line-height:1.45;
   border-bottom:1px solid var(--dsw-alias-border-l1);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rt-hcol-body{padding:6px 8px;flex:1;min-height:0;overflow:auto}
@@ -4055,7 +4158,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-ap-asset{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 6px;border-radius:5px;
   background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
 .rt-ap-tunnel{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:4px 7px;border-radius:5px;
-  background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-left:1px solid var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b))}
+  background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-left:3px solid #f59e0b}
 .rt-hcol-sub{font-size:10.5px;color:var(--dsw-alias-label-secondary);margin-bottom:2px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;gap:5px;align-items:center}
 .rt-hcol-sub.off{opacity:.6}
@@ -4069,13 +4172,13 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-hit-txt.none{color:var(--dsw-alias-state-error-primary)}
 .rt-hit-row .rt-hit-time{flex:none;margin-left:auto}
 /* 自己注册/自建的账号：留痕但不计分，整行压暗 */
-.rt-hit-row.self-created{opacity:.72;border-left:1px solid color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)}
+.rt-hit-row.self-created{opacity:.72;border-left:3px solid #ef444488}
 /* 同一资产同一端口的重复账号/库权限：服务已拿满，不计分（只作留痕） */
-.rt-hit-row.service-capped{opacity:.72;border-left:1px solid color-mix(in srgb,var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warn-primary,#f59e0b)) 53%,transparent)}
-.rt-hit-row.service-capped .rt-hit-idx{background:var(--dsw-alias-state-warn-primary,#f59e0b)}
+.rt-hit-row.service-capped{opacity:.72;border-left:3px solid #f59e0b88}
+.rt-hit-row.service-capped .rt-hit-idx{background:#f59e0b}
 .rt-rep-group{margin-bottom:14px}
 .rt-rep-stage{display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:7px;
-  background:var(--dsw-alias-bg-layer-2);border-left:1px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l3,#64748b));border-radius:6px;
+  background:var(--dsw-alias-bg-layer-2);border-left:4px solid #64748b;border-radius:6px;
   cursor:pointer;outline:none;user-select:none}
 .rt-rep-stage:hover{background:var(--dsw-alias-bg-layer-1)}
 .rt-rep-stage:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
@@ -4097,8 +4200,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 /* 技能可用性徽章（技能库页签） */
 .rt-avail{display:inline-block;padding:0 5px;border-radius:4px;font-size:10.5px;white-space:nowrap;
   border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
-.rt-avail-available{color:var(--dsw-alias-state-success-primary,#22c55e);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#22c55e) 53%,transparent)}
-.rt-avail-broken{color:var(--dsw-alias-state-error-primary,#ef4444);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)}
+.rt-avail-available{color:#10b981;border-color:#10b98155;background:#10b9811a}
+.rt-avail-broken{color:#ef4444;border-color:#ef444455;background:#ef44441a}
 .rt-avail-unknown{color:#94a3b8;border-color:#94a3b855;background:#94a3b81a}
 /* 版本 / 更新弹窗 */
 .rt-modal{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
@@ -4115,12 +4218,12 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-kb-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
 .rt-kb-title{font-weight:600;font-size:12.5px;overflow-wrap:anywhere}
 .rt-kb-kind{font-size:10px;font-weight:700;letter-spacing:.4px;padding:1px 5px;border-radius:4px;
-  color:#fff;background:var(--dsw-alias-border-l3,#64748b);flex:none}
-.rt-kb-kind.k-exp{background:var(--dsw-alias-state-error-primary,#ef4444)}
-.rt-kb-kind.k-poc{background:var(--dsw-alias-state-warn-primary,#f59e0b)}
+  color:#fff;background:#64748b;flex:none}
+.rt-kb-kind.k-exp{background:#ef4444}
+.rt-kb-kind.k-poc{background:#f59e0b}
 .rt-kb-kind.k-template{background:#8b5cf6}
 .rt-kb-kind.k-script{background:#0ea5e9}
-.rt-kb-kind.k-payload{background:var(--dsw-alias-state-success-primary,#22c55e)}
+.rt-kb-kind.k-payload{background:#10b981}
 .rt-kb-sub{font-size:11px;color:var(--dsw-alias-label-secondary);padding:0 9px 7px;overflow-wrap:anywhere}
 .rt-kb-body{padding:0 9px 9px}
 .rt-kb-actions{display:flex;gap:6px;margin:7px 0}
@@ -4149,7 +4252,83 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 .rt-shot-zoom{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:10px;cursor:zoom-out;padding:18px}
 .rt-shot-zoom img{max-width:96vw;max-height:86vh;border-radius:6px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
-.rt-shot-zoom-cap{color:#e5e7eb;font-size:12px;text-align:center;max-width:90vw;overflow-wrap:anywhere}`    /* ---------------------------------------------------------- 桥接与状态 */
+.rt-shot-zoom-cap{color:#e5e7eb;font-size:12px;text-align:center;max-width:90vw;overflow-wrap:anywhere}
+body[data-ds-dark-theme] .rt-dock,body[data-ds-dark-theme] .rt-full,
+.dshp-dock[data-theme="dusk"] .rt-dock,.dshp-dock[data-theme="dusk"] .rt-full{
+  --rt-paper:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 42%,transparent);
+  --rt-paper-2:color-mix(in srgb,var(--dsw-alias-bg-layer-2,#1c1e24) 34%,transparent);
+  --rt-well:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#1c1e24) 26%,transparent);
+  --rt-hi:color-mix(in srgb,#fff 10%,transparent);
+  --rt-ink:var(--dsw-alias-label-primary,#f4f1ea);
+  --rt-mute:color-mix(in srgb,var(--dsw-alias-label-primary,#f4f1ea) 78%,var(--dsw-alias-label-secondary,#c9c3b8));
+  --rt-line:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent);
+  --rt-ok:#8fd0a8;--rt-warn:#e4c48a;--rt-bad:#f0b4b4;
+  box-shadow:inset 0 1px 0 var(--rt-hi),0 16px 40px color-mix(in srgb,#000 28%,transparent)}
+.rt-card,.rt-sess,.rt-hit,.rt-cred,.rt-evi,.rt-kb,.rt-rep,.rt-flow-node,.rt-hflow-node,.rt-atest,.rt-hcol,.rt-ap-hit,.rt-rep-req,.rt-rep-trace,.rt-shots,.rt-modal-box{
+  background:var(--rt-paper)!important;border-color:var(--rt-line)!important;color:var(--rt-ink);
+  backdrop-filter:var(--rt-glass);-webkit-backdrop-filter:var(--rt-glass);box-shadow:inset 0 1px 0 var(--rt-hi)}
+.rt-score-group,.rt-sec,.rt-kb-cat,.rt-evi-head,.rt-rep-req-head,.rt-ap-head,.rt-ap-goal,.rt-rep-stage{
+  background:var(--rt-paper-2)!important;border-color:var(--rt-line)!important;color:var(--rt-ink)}
+.rt-head,.rt-tabs,.rt-toolbar,.rt-foot,.rt-side,.rt-list,.rt-pane,.rt-livebar,.rt-concl,.rt-subtabs,.rt-kb-filter,.rt-kb-cats,.rt-body,.rt-table,.rt-main{
+  background:transparent!important;box-shadow:none}
+.rt-row.head,.rt-score-row.head,.rt-vrow.head{
+  background:var(--rt-paper)!important;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.rt-row:hover,.rt-vrow:hover,.rt-score-row:hover,.rt-item:hover,.rt-item.on,.rt-seg:hover,.rt-seg.on,.rt-icon-btn:hover,.rt-hbtn:hover,.rt-kb-head:hover,.rt-sidehead-btn:hover,.rt-sec:hover,.rt-rep-stage:hover,.rt-concl-i:hover,.rt-concl-i.on{
+  background:var(--rt-fill)!important}
+.rt-btn,.rt-icon-btn,.rt-hbtn,.rt-input,.rt-eng-select,.rt-textarea,.rt-chip,.rt-code,.rt-hit-evi,.rt-atest-notes,.rt-clip-body,.rt-evi-body,.rt-rep-http,.rt-md,.rt-kb-tpl-row,.rt-hit-row,.rt-ap-asset,.rt-ap-tunnel{
+  background:var(--rt-well)!important;border-color:var(--rt-line)!important;color:var(--rt-ink)!important;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.rt-btn{border-radius:8px;transition:transform 500ms var(--rt-ease),opacity 300ms var(--rt-ease)}
+.rt-btn:hover:not(:disabled){transform:translateY(-1px);border-color:var(--rt-accent)}
+.rt-btn:active:not(:disabled){transform:scale(.98)}
+.rt-btn:focus-visible,.rt-input:focus-visible,.rt-tab:focus-visible,.rt-icon-btn:focus-visible,.rt-hbtn:focus-visible{
+  outline:2px solid var(--rt-accent);outline-offset:2px}
+.rt-btn-primary,.rt-btn-primary:hover:not(:disabled){background:var(--rt-accent)!important;border-color:var(--rt-accent)!important;color:#fff!important;backdrop-filter:none}
+.rt-input option,.rt-eng-select option{background:var(--dsw-alias-bg-layer-1,#fff);color:var(--rt-ink)}
+body[data-ds-dark-theme] .rt-input option,body[data-ds-dark-theme] .rt-eng-select option,.dshp-dock[data-theme="dusk"] .rt-input option,.dshp-dock[data-theme="dusk"] .rt-eng-select option{background:#1b1d22;color:#f4f1ea}
+.rt-pri-high,.rt-test-blocked,.rt-sev-critical,.rt-sev-high{color:var(--rt-bad)!important;background:color-mix(in srgb,var(--rt-bad) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--rt-bad) 40%,var(--rt-line))!important}
+.rt-pri-medium,.rt-test-testing,.rt-tag-active{color:var(--rt-warn)!important;background:color-mix(in srgb,var(--rt-warn) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--rt-warn) 40%,var(--rt-line))!important}
+.rt-pri-low{color:var(--rt-mute)!important;background:var(--rt-paper-2)!important;border:1px solid var(--rt-line)!important}
+.rt-gain,.rt-counted,.rt-scorepts,.rt-flow-pts,.rt-hflow-pts,.rt-hcol-pts,.rt-ap-pts{color:var(--rt-ok)!important;background:color-mix(in srgb,var(--rt-ok) 16%,transparent)!important;border:1px solid color-mix(in srgb,var(--rt-ok) 38%,var(--rt-line))!important}
+.rt-secret{color:var(--rt-warn)!important;background:color-mix(in srgb,var(--rt-warn) 14%,transparent)!important;border-color:color-mix(in srgb,var(--rt-warn) 40%,var(--rt-line))!important}
+.rt-scope-internal{color:#0e7490;background:color-mix(in srgb,#06b6d4 16%,transparent);border:1px solid color-mix(in srgb,#06b6d4 32%,transparent)}
+.rt-scope-external{color:var(--rt-warn);background:color-mix(in srgb,var(--rt-warn) 16%,transparent);border:1px solid color-mix(in srgb,var(--rt-warn) 32%,transparent)}
+.rt-scope-testing{color:#5b21b6;background:color-mix(in srgb,#8b5cf6 16%,transparent);border:1px solid color-mix(in srgb,#8b5cf6 32%,transparent)}
+body[data-ds-dark-theme] .rt-scope-internal,.dshp-dock[data-theme="dusk"] .rt-scope-internal{color:#67e8f9}
+body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-scope-testing{color:#c4b5fd}
+.rt-modal-box{border-radius:16px;backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);
+  box-shadow:inset 0 1px 0 var(--rt-hi),0 16px 40px color-mix(in srgb,#000 28%,transparent)}
+.rt-flow-action.inferred,.rt-ap-act.inferred{font-style:normal}
+@media (prefers-reduced-motion:reduce){.rt-btn,.rt-live-dot{transition:opacity 300ms var(--rt-ease);animation:none;transform:none}}
+.rt-head,.rt-toolbar,.rt-foot,.rt-livebar,.rt-concl{padding:8px 12px}
+.rt-tabs,.rt-subtabs{gap:8px;padding:0 12px}
+.rt-tab{padding:8px 12px;gap:4px}
+.rt-pane,.rt-chain,.rt-sess-grid,.rt-flow,.rt-ap,.rt-rep-list,.rt-live-body{padding:12px}
+.rt-side,.rt-list{width:192px;padding:8px;box-sizing:border-box}
+.rt-seg,.rt-item{padding:8px;border-radius:8px;margin-bottom:4px}
+.rt-card{padding:12px;margin-bottom:12px;border-radius:8px}
+.rt-card h4{margin:0 0 8px}
+.rt-btn{padding:4px 12px;border-radius:8px;font-size:12px;line-height:20px}
+.rt-input,.rt-eng-select{padding:4px 12px;border-radius:8px;min-height:32px;box-sizing:border-box}
+.rt-textarea{padding:8px 12px;border-radius:8px}
+.rt-row,.rt-score-row,.rt-vrow{padding:8px 12px;gap:8px}
+.rt-row{grid-template-columns:minmax(96px,1.1fr) minmax(56px,72px) minmax(64px,96px) minmax(0,1.2fr) minmax(0,1fr)}
+.rt-toolbar{gap:8px}
+.rt-hint{padding:8px 12px;margin-bottom:8px;border-radius:8px}
+.rt-empty,.rt-err{padding:8px 12px}
+.rt-empty{padding:24px 12px}
+.rt-sess{padding:12px;border-radius:8px}
+.rt-sess-grid{gap:12px}
+.rt-expand,.rt-score-detail,.rt-vdetail{padding:8px 12px 12px}
+.rt-section{padding:8px 12px 4px}
+.rt-full .rt-head{padding:12px 16px}
+.rt-full .rt-tabs{padding:0 16px;gap:8px}
+.rt-full .rt-pane,.rt-full .rt-chain,.rt-full .rt-sess-grid{padding:16px}
+.rt-full .rt-foot,.rt-full .rt-toolbar,.rt-full .rt-livebar,.rt-full .rt-concl{padding:8px 16px}
+.rt-full .rt-side{width:240px}
+.rt-full .rt-list{width:256px}
+.rt-full .rt-row{grid-template-columns:minmax(0,1.2fr) minmax(64px,90px) minmax(80px,130px) minmax(0,1.4fr) minmax(0,1.2fr)}
+`    /* ---------------------------------------------------------- 桥接与状态 */
     /** 是否在「全面浏览」独立窗口里（URL hash 标记，复用同一套界面代码）。 */
     const isFullWindow = () => {
       try { return String(window.location.hash || '') === '#redteam-full' } catch { return false }
@@ -4586,7 +4765,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
               title: it.state === 'live' ? '存活' : String(it.state),
               style: {
                 width: 7, height: 7, borderRadius: '50%', flex: 'none', marginTop: 4,
-                background: it.state === 'live' ? 'var(--dsw-alias-state-success-primary,#22c55e)' : '#94a3b8',
+                background: it.state === 'live' ? '#10b981' : '#94a3b8',
               },
             }),
             h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis' } }, it.ip),
@@ -4598,7 +4777,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
             }, it.discovered_at ? fmtShort(it.discovered_at) : '发现时间未知')),
           h('span', null, h(PriTag, { p: it.priority, title: it.potential || '' })),
           h('span', null, h(TestTag, { s: it.test_status }),
-            it.blocked_count ? h('span', { className: 'rt-tag', style: { color: 'var(--dsw-alias-state-error-primary,#ef4444)', borderColor: 'color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)', marginLeft: 4 } }, '封' + it.blocked_count) : null),
+            it.blocked_count ? h('span', { className: 'rt-tag', style: { color: '#ef4444', borderColor: '#ef444455', marginLeft: 4 } }, '封' + it.blocked_count) : null),
           h('span', { title: portText }, (shownPorts || '—') + morePorts),
           h('span', { title: fpText }, fpText.length > 30 ? fpText.slice(0, 30) + '…' : fpText)))
 
@@ -4637,7 +4816,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
               /* 必读三行 */
               h('div', { className: 'rt-kv' }, h('b', null, '测试'), h('span', null,
                 h(TestTag, { s: d.test_status }),
-                d.blocked_count ? h('span', { className: 'rt-tag', style: { marginLeft: 6, color: 'var(--dsw-alias-state-error-primary,#ef4444)', borderColor: 'color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)' } }, '被封 ' + d.blocked_count + ' 次') : null,
+                d.blocked_count ? h('span', { className: 'rt-tag', style: { marginLeft: 6, color: '#ef4444', borderColor: '#ef444455' } }, '被封 ' + d.blocked_count + ' 次') : null,
                 h('span', { style: { marginLeft: 8, color: 'var(--dsw-alias-label-secondary)' } },
                   (d.test_updated_at ? fmt(d.test_updated_at) : '未测过') + (d.test_updated_by ? ' · ' + d.test_updated_by : '')))),
               h('div', { className: 'rt-kv' }, h('b', null, '易打性'), h('span', null,
@@ -4957,7 +5136,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
             s.provider ? s.provider : null,
             s.dir ? s.dir : null].filter(Boolean).join(' · ')),
         (s.problems || []).length > 0 && s.availability !== 'available' && s.library !== 'official'
-          ? h('div', { className: 'rt-kb-sub', style: { color: 'var(--dsw-alias-state-warn-primary, var(--dsw-alias-state-warn-primary,#f59e0b))' } },
+          ? h('div', { className: 'rt-kb-sub', style: { color: 'var(--dsw-alias-state-warn-primary, #f59e0b)' } },
               '⚠ ' + String(s.problems[0]).slice(0, 60))
           : null))
       const redteamRows = filtered.filter((s) => s.library !== 'official').map(renderSkill)
@@ -5036,7 +5215,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
                       : null,
                     (s2.needs_user || []).length > 0
                       ? h('div', { className: 'rt-kv' }, h('b', null, '需要你提供'),
-                          h('span', { style: { color: 'var(--dsw-alias-state-warn-primary, var(--dsw-alias-state-warn-primary,#f59e0b))' } },
+                          h('span', { style: { color: 'var(--dsw-alias-state-warn-primary, #f59e0b)' } },
                             s2.needs_user.map((x, i) => h('div', { key: 'n' + i }, '· ' + x))))
                       : null)
                 })(),
@@ -5624,14 +5803,14 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
       stageList.forEach((st, si) => {
         const items = (st.items || []).map((x) => byId.get(x.id)).filter(Boolean)
         if (items.length === 0) return
-        groups.push({ code: st.code, name: st.name, color: st.color || 'var(--dsw-alias-border-l3,#64748b)',
+        groups.push({ code: st.code, name: st.name, color: st.color || '#64748b',
           ordinal: st.ordinal || si + 1, points: st.points || 0, cumulative: st.cumulative || 0, items })
       })
       /* scoreChain 完全没有阶段信息时，至少把得分归到「其他」，不要让条目凭空消失 */
       const grouped = new Set(groups.reduce((acc, g) => acc.concat(g.items.map((x) => x.id)), []))
       const rest = (reportItems || []).filter((x) => !grouped.has(x.id))
       if (rest.length > 0) {
-        groups.push({ code: 'other', name: '其他得分', color: 'var(--dsw-alias-border-l3,#64748b)', ordinal: groups.length + 1,
+        groups.push({ code: 'other', name: '其他得分', color: '#64748b', ordinal: groups.length + 1,
           points: rest.reduce((n, x) => n + (x.counted ? x.points : 0), 0),
           cumulative: 0, items: rest })
       }
@@ -5740,7 +5919,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
                   h('b', null, '执行 '),
                   s.tool
                     ? h('span', { className: 'rt-mono' }, s.tool)
-                    : h('span', { style: { color: 'var(--dsw-alias-state-warn-primary, var(--dsw-alias-state-warn-primary,#f59e0b))' } }, '未记录实际命令（redteam_chain_add 的 tool）')),
+                    : h('span', { style: { color: 'var(--dsw-alias-state-warn-primary, #f59e0b)' } }, '未记录实际命令（redteam_chain_add 的 tool）')),
                 s.tool ? h('div', { style: { marginTop: 3 } },
                   h('button', {
                     className: 'rt-btn', style: { padding: '0 6px', fontSize: 11 },
@@ -6822,7 +7001,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
         if (a.webshells) chips.push(h('span', { key: 'w', className: 'rt-tag rt-tag-passive' }, 'WebShell ' + a.webshells))
         if (a.tunnels) chips.push(h('span', { key: 't', className: 'rt-tag rt-tag-passive' }, '隧道 ' + a.tunnels))
         if (a.priority) chips.push(h('span', { key: 'pr', className: 'rt-tag' }, '易打 ' + a.priority))
-        if (a.blocked_count) chips.push(h('span', { key: 'b', className: 'rt-tag', style: { color: 'var(--dsw-alias-state-error-primary,#ef4444)', borderColor: 'color-mix(in srgb,var(--dsw-alias-state-error-primary,var(--dsw-alias-state-error-primary,#ef4444)) 53%,transparent)' } }, '被封 ' + a.blocked_count + ' 次'))
+        if (a.blocked_count) chips.push(h('span', { key: 'b', className: 'rt-tag', style: { color: '#ef4444', borderColor: '#ef444455' } }, '被封 ' + a.blocked_count + ' 次'))
         const noteLines = a.test_notes
           ? String(a.test_notes).split('\n').slice(-3).map((l) => (l.length > 240 ? l.slice(0, 240) + ' …' : l))
           : []
@@ -7007,7 +7186,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
           w.privilege ? h('span', { className: 'rt-tag' }, w.privilege) : null,
           h('div', { className: 'rt-spacer' }),
           copied === 'cmd' + w.id
-            ? h('span', { className: 'rt-tag', style: { color: 'var(--dsw-alias-state-success-primary,#22c55e)' } }, '已复制')
+            ? h('span', { className: 'rt-tag', style: { color: '#10b981' } }, '已复制')
             : h('button', {
                 className: 'rt-btn', style: { padding: '0 6px', fontSize: 11 },
                 onClick: () => copy('cmd' + w.id, 'curl -s "' + w.url + '"'),
@@ -7600,8 +7779,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
         ['assets', '资产测绘'], ['env', '环境适配'], ['agents', '智能体'], ['sessions', '会话隧道'],
         ['findings', '漏洞战果'],
         ['chain', '攻击链'], ['scores', '得分目标'], ['report', '报告'],
-        ['knowledge', '知识库'],
-        ['skills', '技能库'],
       ]
       const full = isFullWindow()
       const openFull = () => {
@@ -7626,10 +7803,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
       let body
       if (err) body = h('div', { className: 'rt-err' }, err)
-      /* 全局页：没有靶标也能看（知识库 / 环境适配 / 技能库 / 智能体概览） */
-      else if (st.tab === 'knowledge') body = h(KnowledgeTab, { refreshKey: refreshKey })
-      else if (st.tab === 'env') body = h(EnvTab, { refreshKey: refreshKey })
-      else if (st.tab === 'skills') body = h(SkillsTab, { refreshKey: refreshKey })
+      /* 全局页：没有靶标也能看（环境适配 / 智能体概览）。开源版下架知识库和技能库。 */
+      else if (st.tab === 'env' || st.tab === 'knowledge' || st.tab === 'skills') body = h(EnvTab, { refreshKey: refreshKey })
       else if (st.tab === 'agents' || st.tab === 'prompts') body = h(AgentsTab, { engagement: eng, refreshKey: refreshKey })
       else if (!eng) {
         body = h('div', { className: 'rt-pane' },
@@ -7788,7 +7963,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 		let drillGrantPosting = 0;
 		let drillGrantState = { ready: false, granted: false };
 		let drillSyncRetryTimer = null;
-		const AUTH_LEGAL_HTML = "<h3>严正法律免责与合规使用声明</h3>\r\n    <p>本声明在进入演练台前必须全文阅读。本项目是非营利开源项目，遵守国家法律法规及所在平台的规范，仅供学习与研究、技术参考。严禁任何主体把本项目用于商业售卖、付费倒卖或黑灰产牟利。</p>\r\n    <p>开发者坚决反对并严禁任何形式的违法犯罪，绝不支持、不鼓励、不协助未授权网络攻击、漏洞利用、数据窃取、非法侵入计算机信息系统，或生成违法违禁内容。任何将本项目用于违法犯罪的行为，均与开发者无关，由行为人依法独立承担全部法律责任。不得以科研、教学、测试、演示或内部学习为由规避下列条款。</p>\r\n    <h3>1. 本仓库不含违法内容</h3>\r\n    <p>dsh-purge 发布的代码、文档、补丁与默认提示词不是木马、后门、未授权渗透工具、勒索软件、撞库脚本，也不是针对公网或第三方系统的攻击载荷。项目不提供违法内容，也不教唆、组织、协助实施违法犯罪。</p>\r\n    <h3>2. 本机操作不构成对外授权</h3>\r\n    <p>应用补丁、写入、回滚、卸载，都在本机文件和本机进程内完成。这些操作不对任何公网主机或未授权系统进行扫描、探测、入侵或攻击发包，也不得把本机当作跳板。</p>\r\n    <p>插件若开启检测更新，仅可能访问本插件自己的 GitHub 仓库以核对版本。该访问与对第三方系统的网络攻击无关，不能被解释为对外渗透的授权。</p>\r\n    <h3>3. 允许使用的范围</h3>\r\n    <p>只允许用在你能证明有权处理的环境：本人有权管理的本机官方 Harness；离线的本地合成靶标；所有者已经出具合法书面授权的网络安全演练靶场；合规实验室里的受控环境。书面授权要能对应具体目标、时间和范围。只填写一个单位名称，或只有口头说法，不构成授权。</p>\r\n    <p>未经所有者合法书面授权的目标、公网在线系统、生产业务，以及能源、交通、水利、金融、公共服务、电子政务等关键信息基础设施，都不得作为演练对象。</p>\r\n    <h3>4. 必须遵守的法律，按条、款</h3>\r\n    <p>《中华人民共和国刑法》第二百八十五条第一款：禁止违反国家规定，侵入国家事务、国防建设、尖端科学技术领域的计算机信息系统。</p>\r\n    <p>同条第二款：禁止侵入前款规定以外的计算机信息系统，或者用其他技术手段，获取该系统中存储、处理或者传输的数据，或者对该系统实施非法控制。</p>\r\n    <p>同条第三款：禁止提供专门用于侵入、非法控制计算机信息系统的程序、工具；明知他人实施侵入、非法控制而为其提供程序、工具，同样禁止。</p>\r\n    <p>第二百八十六条第一款：禁止对计算机信息系统功能进行删除、修改、增加、干扰，造成系统不能正常运行。</p>\r\n    <p>同条第二款：禁止对系统中存储、处理或者传输的数据和应用程序进行删除、修改、增加。</p>\r\n    <p>同条第三款：禁止故意制作、传播计算机病毒等破坏性程序，影响计算机系统正常运行。</p>\r\n    <p>第二百八十七条：禁止利用计算机实施金融诈骗、盗窃、贪污、挪用公款、窃取国家秘密或者其他犯罪。</p>\r\n    <p>第二百八十七条之一第一款第（一）项：禁止设立用于实施诈骗、传授犯罪方法、制作或者销售违禁物品、管制物品等违法犯罪活动的网站、通讯群组。</p>\r\n    <p>同款第（二）项：禁止发布有关制作或者销售毒品、枪支、淫秽物品等违禁物品、管制物品或者其他违法犯罪的信息。</p>\r\n    <p>同款第（三）项：禁止为实施诈骗等违法犯罪活动发布信息。</p>\r\n    <p>第二百八十七条之二：禁止明知他人利用信息网络实施犯罪，仍为其提供技术支持，或者提供广告推广、支付结算等帮助。</p>\r\n    <p>第二百五十三条之一第一款、第三款：禁止向他人出售或者提供公民个人信息；禁止窃取或者以其他方法非法获取公民个人信息。</p>\r\n    <p>《中华人民共和国网络安全法》第十三条第二款：使用网络不得危害网络安全，不得利用网络从事危害国家安全、荣誉和利益，煽动颠覆国家政权、推翻社会主义制度，煽动分裂国家、破坏国家统一，宣扬恐怖主义、极端主义，宣扬民族仇恨、民族歧视，传播暴力、淫秽色情信息，编造、传播虚假信息扰乱经济秩序和社会秩序，以及侵害他人名誉、隐私、知识产权和其他合法权益等活动。</p>\r\n    <p>第十四条：禁止利用网络从事危害未成年人身心健康的活动。</p>\r\n    <p>第二十九条：禁止非法侵入他人网络、干扰他人网络正常功能、窃取网络数据；禁止提供专门用于侵入网络、干扰网络正常功能及防护措施、窃取网络数据的程序、工具；明知他人从事危害网络安全的活动，禁止为其提供技术支持、广告推广、支付结算等帮助。</p>\r\n    <p>第三十三条：公共通信和信息服务、能源、交通、水利、金融、公共服务、电子政务等关键信息基础设施实行重点保护。未获合法授权，不得侵入、干扰或破坏。</p>\r\n    <p>第四十六条：禁止窃取或者以其他非法方式获取个人信息，禁止非法出售或者非法向他人提供个人信息。</p>\r\n    <p>第四十八条：禁止设立用于实施诈骗，传授犯罪方法，制作或者销售违禁物品、管制物品等违法犯罪活动的网站、通讯群组；禁止利用网络发布涉及上述违法犯罪活动的信息。</p>\r\n    <p>第五十条：发送的电子信息、提供的应用软件不得设置恶意程序，不得含有法律、行政法规禁止发布或者传输的信息。</p>\r\n    <p>《中华人民共和国数据安全法》第八条：开展数据处理活动，不得危害国家安全、公共利益，不得损害个人、组织的合法权益。</p>\r\n    <p>第三十二条第一款：收集数据应当采取合法、正当的方式，不得窃取或者以其他非法方式获取数据。</p>\r\n    <p>同条第二款：法律、行政法规对收集、使用数据的目的和范围有规定的，只能在该目的和范围内收集、使用。</p>\r\n    <p>第五十一条：窃取或者以其他非法方式获取数据，或者因此损害个人、组织合法权益的，依照有关法律、行政法规处罚。</p>\r\n    <p>《中华人民共和国个人信息保护法》第五条：处理个人信息应当合法、正当、必要、诚信，不得通过误导、欺诈、胁迫等方式处理。</p>\r\n    <p>第六条第一款、第二款：处理个人信息应当具有明确、合理的目的，并与该目的直接相关，采取对个人权益影响最小的方式；收集限于实现处理目的的最小范围，不得过度收集。</p>\r\n    <p>第十条：禁止非法收集、使用、加工、传输他人个人信息，禁止非法买卖、提供或者公开他人个人信息；禁止从事危害国家安全、公共利益的个人信息处理活动。</p>\r\n    <p>第十三条：没有取得个人同意，也不属于订立履行合同所必需、履行法定职责、应对突发、公共利益新闻舆论、处理本人已经合法公开的信息，以及法律行政法规规定的其他情形之一的，不得处理个人信息。</p>\r\n    <p>第二十八条、第二十九条：生物识别、医疗健康、金融账户、行踪轨迹，以及不满十四周岁未成年人的个人信息，属于敏感个人信息。没有特定目的、充分必要性和严格保护措施，并且没有取得个人单独同意的，不得处理。</p>\r\n    <p>此外还须遵守其他现行有效的法律、行政法规、监管规定，以及所使用模型的服务条款与滥用政策。</p>\r\n    <h3>5. 据此禁止的方向</h3>\r\n    <p>未授权进入。禁止把没有书面授权的单位、域名、地址、公网系统、生产业务或关键信息基础设施登记为靶标，禁止对其扫描、探测、侵入、控制或发包。对应刑法第二百八十五条第一款、第二款，网络安全法第二十九条、第三十三条。</p>\r\n    <p>破坏与恶意程序。禁止删除、修改、增加、干扰他人系统功能或其中的数据、应用程序；禁止制作、传播病毒、勒索程序或其他破坏性程序；禁止在信息或软件中设置恶意程序。对应刑法第二百八十六条第一款至第三款，网络安全法第五十条。</p>\r\n    <p>工具与帮助。禁止把本项目或本机提供给他人，用于侵入、非法控制或窃取数据；禁止明知对方在实施网络犯罪，仍提供程序、工具、技术支持、广告推广或支付结算。对应刑法第二百八十五条第三款、第二百八十七条之二，网络安全法第二十九条。</p>\r\n    <p>数据。禁止窃取、非法收集、超范围使用、泄露、出售或向他人提供业务数据、账号、口令和其他受保护数据。对应数据安全法第八条、第三十二条、第五十一条。</p>\r\n    <p>个人信息。禁止非法收集、使用、加工、传输、买卖、提供或公开他人个人信息；禁止过度收集；禁止以误导、欺诈、胁迫方式处理；禁止擅自处理生物识别、医疗健康、金融账户、行踪轨迹和儿童个人信息。对应刑法第二百五十三条之一第一款、第三款，网络安全法第四十六条，个人信息保护法第五条、第六条、第十条、第十三条、第二十八条、第二十九条。</p>\r\n    <p>诈骗与违法信息。禁止设立或利用网站、群组实施诈骗、传授犯罪方法、制作或销售违禁物品、管制物品；禁止发布此类信息；禁止利用计算机实施诈骗、盗窃、贪污、挪用公款、窃取国家秘密。对应刑法第二百八十七条、第二百八十七条之一第一款第（一）项至第（三）项，网络安全法第四十八条。</p>\r\n    <p>内容。禁止生成或传播危害国家安全、荣誉和利益的内容，禁止煽动颠覆、分裂，禁止恐怖主义、极端主义、民族仇恨，禁止暴力、淫秽色情、赌博，禁止编造虚假信息扰乱经济秩序和社会秩序，禁止侵害名誉、隐私、知识产权，禁止危害未成年人身心健康的内容。对应网络安全法第十三条第二款、第十四条。</p>\r\n    <p>结果扩散。演练中形成的记录、资产信息和文件，只留在书面授权写明的目标和期限里，不得交给无权获知的人，也不得改作授权以外的用途。</p>\r\n    <h3>6. 责任由使用者承担</h3>\r\n    <p>本项目依据 MIT 协议按现状提供。开发者不就完整性、安全性与适用性作保证。使用者对自己的下载、部署、运行、修改、传播，以及全部输入与输出，承担独立、完全的民事、行政及刑事法律责任。作者与贡献者不承担因滥用产生的直接、间接或连带责任。</p>\r\n    <p>勾选确认的是操作者本人，不能代替没有阅读本声明的人，也不能把别人的系统说成已经授权。</p>\r\n    <h3>7. 违约即终止授权</h3>\r\n    <p>一旦用于非法攻击、恶意活动或上述任一禁止方向，使用许可自该行为发生之日起自动终止，且不可撤销。必须立即停止使用，并销毁本项目的代码、脚本与衍生数据，依法承担责任。授权终止后，演练台不得继续打开或继续使用。</p>\r\n    <h3>8. 与 DeepSeek 官方的关系</h3>\r\n    <p>本项目是独立的开源项目，与 DeepSeek 官方或其关联主体没有隶属、商业合作、授权或官方背书。文中的「官方」只表示评测对象是使用者本机安装的官方 DeepSeek Harness 软件包，不代表 DeepSeek 官方开发、认可或担保本插件。</p>\r\n    <p>文末。倒计时结束、滚到这里并勾选全部三项，才表示你以本人身份认可本声明，并完成本次演练台授权。</p>";
+		const AUTH_LEGAL_HTML = "<h3>Solemn Legal Disclaimer and Notice on Compliant Use</h3>\n    <p>You must read this notice in full before entering the drill console. This project is a non-profit open-source project that complies with national laws and regulations and with the rules of the platforms on which it is used, and is provided only for study, research, and technical reference. No entity may use this project for commercial sale, paid resale, or profit from illicit or gray-market activities.</p>\n    <p>The developers firmly oppose and prohibit all forms of illegal or criminal activity, and will never support, encourage, or assist unauthorized network attacks, exploitation, data theft, unauthorized intrusion into computer information systems, or the generation of illegal or prohibited content. Any use of this project for illegal or criminal activity is unrelated to the developers, and the perpetrator bears full legal responsibility independently in accordance with the law. The following clauses may not be circumvented under the pretext of scientific research, teaching, testing, demonstration, or internal study.</p>\n    <h3>1. This repository contains no illegal content</h3>\n    <p>The code, documentation, patches, and default prompts published by dsh-purge are not trojans, backdoors, unauthorized penetration tools, ransomware, or credential-stuffing scripts, nor are they attack payloads aimed at public networks or third-party systems. The project does not provide illegal content and does not instigate, organize, or assist in any illegal or criminal activity.</p>\n    <h3>2. Local operations do not constitute external authorization</h3>\n    <p>Applying patches, writing, rolling back, and uninstalling all take place within local files and local processes. These operations do not scan, probe, intrude into, or send attack traffic to any public host or unauthorized system, and this machine must not be used as a jump host.</p>\n    <p>If the plugin has update checks enabled, it may only access this plugin's own GitHub repository to verify the version. That access is unrelated to network attacks on third-party systems and must not be interpreted as authorization for external penetration testing.</p>\n    <h3>3. Permitted scope of use</h3>\n    <p>Use is permitted only in environments you can prove you are entitled to handle: the official Harness installed locally on a machine you administer; offline, local synthetic targets; cybersecurity exercise ranges for which the owner has issued lawful written authorization; and controlled environments in a compliant laboratory. Written authorization must correspond to specific targets, time, and scope. Entering only an organization name, or relying only on an oral statement, does not constitute authorization.</p>\n    <p>Targets without the owner's lawful written authorization, publicly reachable online systems, production services, and critical information infrastructure such as energy, transportation, water resources, finance, public services, and e-government systems must not be used as exercise targets.</p>\n    <h3>4. Laws that must be complied with, by article and paragraph</h3>\n    <p>Criminal Law of the People's Republic of China, Article 285(1): It is prohibited to violate state regulations and intrude into computer information systems in the fields of state affairs, national defense, and cutting-edge science and technology.</p>\n    <p>Article 285(2): It is prohibited to intrude into computer information systems other than those specified in the preceding paragraph, or to use other technical means to obtain data stored, processed, or transmitted in such systems, or to exercise illegal control over such systems.</p>\n    <p>Article 285(3): It is prohibited to provide programs or tools specially used for intruding into or illegally controlling computer information systems; providing programs or tools to others while knowing that they intend to intrude or illegally control is likewise prohibited.</p>\n    <p>Article 286(1): It is prohibited to delete, modify, add to, or interfere with the functions of a computer information system, causing the system to fail to operate normally.</p>\n    <p>Article 286(2): It is prohibited to delete, modify, or add to data and application programs stored, processed, or transmitted in a system.</p>\n    <p>Article 286(3): It is prohibited to intentionally create or spread destructive programs such as computer viruses that affect the normal operation of computer systems.</p>\n    <p>Article 287: It is prohibited to use computers to commit financial fraud, theft, embezzlement, misappropriation of public funds, theft of state secrets, or other crimes.</p>\n    <p>Article 287-1, paragraph 1, item (1): It is prohibited to establish websites or communication groups used for illegal or criminal activities such as fraud, teaching criminal methods, or producing or selling prohibited or controlled items.</p>\n    <p>Article 287-1, paragraph 1, item (2): It is prohibited to publish information about producing or selling drugs, firearms, obscene materials, or other prohibited or controlled items, or other illegal or criminal information.</p>\n    <p>Article 287-1, paragraph 1, item (3): It is prohibited to publish information for the purpose of committing fraud or other illegal or criminal activities.</p>\n    <p>Article 287-2: It is prohibited to knowingly provide technical support, advertising promotion, payment settlement, or other assistance to others who use information networks to commit crimes.</p>\n    <p>Article 253-1, paragraphs 1 and 3: It is prohibited to sell or provide citizens' personal information to others; it is prohibited to steal or otherwise unlawfully obtain citizens' personal information.</p>\n    <p>Cybersecurity Law of the People's Republic of China, Article 13, paragraph 2: When using networks, one must not endanger cybersecurity, and must not use networks to engage in activities that endanger national security, honor, and interests; incite subversion of state power or overthrow of the socialist system; incite secession or undermine national unity; promote terrorism or extremism; promote ethnic hatred or ethnic discrimination; spread violence or obscene and pornographic information; fabricate or spread false information to disrupt economic and social order; or infringe on the reputation, privacy, intellectual property, or other lawful rights and interests of others.</p>\n    <p>Article 14: It is prohibited to use networks to engage in activities that endanger the physical and mental health of minors.</p>\n    <p>Article 29: It is prohibited to illegally intrude into others' networks, interfere with the normal functions of others' networks, or steal network data; it is prohibited to provide programs or tools specially used for intruding into networks, interfering with the normal functions of networks and protective measures, or stealing network data; when knowing that others are engaged in activities endangering cybersecurity, it is prohibited to provide them with technical support, advertising promotion, payment settlement, or other assistance.</p>\n    <p>Article 33: Critical information infrastructure in public communications and information services, energy, transportation, water resources, finance, public services, and e-government is subject to priority protection. Without lawful authorization, no one may intrude into, interfere with, or destroy it.</p>\n    <p>Article 46: It is prohibited to steal or otherwise unlawfully obtain personal information, and it is prohibited to unlawfully sell or unlawfully provide personal information to others.</p>\n    <p>Article 48: It is prohibited to establish websites or communication groups used for fraud, teaching criminal methods, producing or selling prohibited or controlled items, or other illegal or criminal activities; it is prohibited to use networks to publish information involving the above illegal or criminal activities.</p>\n    <p>Article 50: Electronic information sent and application software provided must not contain malicious programs, and must not contain information that laws or administrative regulations prohibit from being published or transmitted.</p>\n    <p>Data Security Law of the People's Republic of China, Article 8: Data processing activities must not endanger national security or the public interest, or harm the lawful rights and interests of individuals or organizations.</p>\n    <p>Article 32(1): Data must be collected by lawful and proper means; data must not be stolen or otherwise unlawfully obtained.</p>\n    <p>Article 32(2): Where laws or administrative regulations specify the purpose and scope of data collection and use, data may only be collected and used within that purpose and scope.</p>\n    <p>Article 51: Those who steal or otherwise unlawfully obtain data, or thereby harm the lawful rights and interests of individuals or organizations, shall be punished in accordance with relevant laws and administrative regulations.</p>\n    <p>Personal Information Protection Law of the People's Republic of China, Article 5: Personal information must be processed lawfully, properly, necessarily, honestly, and in good faith, and must not be processed by misleading, fraudulent, coercive, or other such means.</p>\n    <p>Article 6, paragraphs 1 and 2: Personal information must be processed for a clear and reasonable purpose and in a way directly related to that purpose, using methods that have the least impact on individual rights and interests; collection must be limited to the minimum scope necessary to achieve the processing purpose, and excessive collection is prohibited.</p>\n    <p>Article 10: It is prohibited to unlawfully collect, use, process, or transmit others' personal information, and to unlawfully buy, sell, provide, or disclose others' personal information; it is prohibited to engage in personal information processing activities that endanger national security or the public interest.</p>\n    <p>Article 13: Personal information must not be processed where none of the following applies: the individual's consent has been obtained; processing is necessary for concluding or performing a contract to which the individual is a party; processing is necessary for performing statutory duties or obligations; processing is necessary for responding to public health emergencies or protecting the life, health, and property of the individual in an emergency; processing is necessary for public-interest news reporting or public opinion supervision within a reasonable scope; the personal information has already been lawfully disclosed by the individual or otherwise lawfully disclosed; or other circumstances provided by laws or administrative regulations.</p>\n    <p>Articles 28 and 29: Biometrics, medical health, financial accounts, whereabouts and movement trajectories, and personal information of minors under the age of 14 are sensitive personal information. It must not be processed without a specific purpose, sufficient necessity, and strict protection measures, and without the individual's separate consent.</p>\n    <p>In addition, other currently effective laws, administrative regulations, and regulatory provisions, as well as the terms of service and abuse policies of the model used, must also be complied with.</p>\n    <h3>5. Prohibited directions under this notice</h3>\n    <p>Unauthorized access. It is prohibited to register as a target any organization, domain, address, public network system, production service, or critical information infrastructure for which there is no written authorization, and to scan, probe, intrude into, control, or send traffic to it. Corresponds to Criminal Law Article 285(1) and (2), and Cybersecurity Law Articles 29 and 33.</p>\n    <p>Damage and malicious programs. It is prohibited to delete, modify, add to, or interfere with others' system functions or the data and application programs therein; to create or spread viruses, ransomware, or other destructive programs; or to plant malicious programs in information or software. Corresponds to Criminal Law Article 286(1) to (3), and Cybersecurity Law Article 50.</p>\n    <p>Tools and assistance. It is prohibited to provide this project or this machine to others for intrusion, illegal control, or data theft; or, while knowing that the other party is committing a cybercrime, to still provide programs, tools, technical support, advertising promotion, or payment settlement. Corresponds to Criminal Law Article 285(3) and Article 287-2, and Cybersecurity Law Article 29.</p>\n    <p>Data. It is prohibited to steal, unlawfully collect, use beyond scope, disclose, sell, or provide to others business data, accounts, passwords, and other protected data. Corresponds to Data Security Law Articles 8, 32, and 51.</p>\n    <p>Personal information. It is prohibited to unlawfully collect, use, process, transmit, buy, sell, provide, or disclose others' personal information; to over-collect; to process by misleading, fraudulent, or coercive means; or to process biometric, medical health, financial account, whereabouts, and children's personal information without authorization. Corresponds to Criminal Law Article 253-1(1) and (3); Cybersecurity Law Article 46; Personal Information Protection Law Articles 5, 6, 10, 13, 28, and 29.</p>\n    <p>Fraud and illegal information. It is prohibited to establish or use websites or groups to commit fraud, teach criminal methods, or produce or sell prohibited or controlled items; to publish such information; or to use computers to commit fraud, theft, embezzlement, misappropriation of public funds, or theft of state secrets. Corresponds to Criminal Law Article 287, Article 287-1(1)(i) to (iii), and Cybersecurity Law Article 48.</p>\n    <p>Content. It is prohibited to generate or spread content that endangers national security, honor, and interests; to incite subversion or secession; to promote terrorism, extremism, or ethnic hatred; to spread violence, obscene or pornographic content, or gambling; to fabricate or spread false information that disrupts economic and social order; to infringe on reputation, privacy, or intellectual property; or to produce content that endangers the physical and mental health of minors. Corresponds to Cybersecurity Law Article 13, paragraph 2, and Article 14.</p>\n    <p>Spread of results. Records, asset information, and files created during exercises may remain only within the targets and time limits specified in the written authorization; they must not be handed to anyone not entitled to know them, and must not be repurposed beyond the authorization.</p>\n    <h3>6. Liability rests with the user</h3>\n    <p>This project is provided \"as is\" under the MIT License. The developers make no warranty as to completeness, security, or fitness for purpose. Users bear independent and full civil, administrative, and criminal liability for their own downloading, deployment, operation, modification, and dissemination, as well as for all inputs and outputs. The author and contributors are not liable for direct, indirect, or joint liability arising from abuse.</p>\n    <p>By checking the boxes, the operator confirms on their own behalf; this cannot substitute for someone who has not read this notice, nor can it present another person's system as already authorized.</p>\n    <h3>7. Breach terminates the authorization</h3>\n    <p>Once used for illegal attacks, malicious activity, or any of the prohibited directions above, the license to use this project automatically terminates from the date of that act and is irrevocable. Use must stop immediately, and the project's code, scripts, and derived data must be destroyed, with liability borne in accordance with the law. After the authorization terminates, the drill console must not be opened or used any further.</p>\n    <h3>8. Relationship with DeepSeek</h3>\n    <p>This project is an independent open-source project and has no affiliation, commercial cooperation, authorization, or official endorsement with DeepSeek or its affiliates. The word \"official\" in this document only means that the evaluated object is the official DeepSeek Harness software package installed locally by the user; it does not mean that DeepSeek officially develops, endorses, or guarantees this plugin.</p>\n    <p>End of document. Only after the countdown ends, you scroll to here, and check all three boxes does it mean that you, as yourself, accept this notice and complete this drill console authorization.</p>";
 
 		function readWelcomeAck() {
 			try { return window.localStorage.getItem(WELCOME_KEY) === "1"; } catch { return false; }
@@ -7900,58 +8075,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		function openDockClean() {
 			setDock({ open: true, tab: "clean", authOpen: false, pending: "tab" });
-		}
-		/* 主入口：所有「打开 dsh-purge」的按钮都先跳到设置页（1.3.0 的正式界面）。
-		 * 引擎没有暴露 settings 命令时退回浮窗，保证任何宿主版本上点了都有反应。 */
-		function openPurgePrimary() {
-			if (openSettingsSection()) return;
-			openDockClean();
-		}
-		/* 从浮窗跳到设置页。
-		 * 官方设置外壳只对外暴露快捷键命令 settings.open（command.resolve 读 context.modal，
-		 * 传 undefined 会被当成"未知 modal"直接 return，所以必须显式传 modal: null）。
-		 * 拿不到快捷键服务时退到 DOM：点侧栏那个 aria-haspopup="dialog" 的设置按钮。
-		 * 面板打开后落到哪一段由外壳决定，所以再按 label 点中我们那一行。 */
-		function findSettingsNavRow() {
-			if (typeof document === "undefined") return null;
-			const label = String(translate("page.nav") || "").trim();
-			if (!label) return null;
-			for (const row of document.querySelectorAll("[role=\"dialog\"] nav button")) {
-				if (String(row.textContent || "").trim() === label) return row;
-			}
-			return null;
-		}
-		function clickSettingsTrigger() {
-			if (typeof document === "undefined") return false;
-			const trigger = document.querySelector('button[aria-haspopup="dialog"][aria-expanded="false"]')
-				|| document.querySelector('button[aria-haspopup="dialog"]');
-			if (!trigger) return false;
-			try { trigger.click(); return true; } catch { return false; }
-		}
-		function openSettingsSection(attempt = 0) {
-			const existing = findSettingsNavRow();
-			if (existing) {
-				try { existing.click(); } catch { /* ignore */ }
-				setDock({ open: false, authOpen: false, pending: "tab" });
-				return true;
-			}
-			if (attempt === 0) {
-				let opened = false;
-				try {
-					const shortcuts = (purgeHost && (purgeHost.shortcuts || (typeof purgeHost.get === "function" ? purgeHost.get("shortcuts") : null))) || null;
-					if (shortcuts && typeof shortcuts.invoke === "function") {
-						shortcuts.invoke("settings.open", { modal: null });
-						opened = true;
-					}
-				} catch { /* ignore */ }
-				if (!opened) opened = clickSettingsTrigger();
-				if (!opened) return false;
-			}
-			// 面板是异步挂载的：最多等 ~600ms，找到就点。
-			if (attempt < 12) {
-				window.setTimeout(() => openSettingsSection(attempt + 1), 50);
-			}
-			return true;
 		}
 		function toggleDock() {
 			if (dockBus.open) setDock({ open: false, authOpen: false, pending: "tab" });
@@ -8182,7 +8305,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		function clientCurrentCwd() {
 			try {
-				const sessions = hostSessions || (hostCtx && hostCtx.sessions);
+				const sessions = rewindSessions || (rewindHost && rewindHost.sessions);
 				if (!sessions) return "";
 				const sid = currentSessionId(sessions);
 				if (!sid) return "";
@@ -8205,7 +8328,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 
 		function isRedteamModeActive() {
 			try {
-				const sessions = hostSessions || (hostCtx && hostCtx.sessions);
+				const sessions = rewindSessions || (rewindHost && rewindHost.sessions);
 				const sid = currentSessionId(sessions);
 				if (sid && sessions) {
 					try {
@@ -8238,8 +8361,11 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 				}
 			} catch { /* ignore */ }
 			try {
+				/* Match the mode label in either language; the Chinese title is rebuilt from
+				 * code points so this file does not hardcode CJK literals. */
+				const zhRedTeamLabel = String.fromCharCode(0x7ea2, 0x961f);
 				const labels = document.querySelectorAll(
-					"[class*='label' i][class*='preset' i], [class*='presetLabel' i], [title*='红队'], [title*='RedTeam']"
+					"[class*='label' i][class*='preset' i], [class*='presetLabel' i], [title*='" + zhRedTeamLabel + "'], [title*='Red team' i], [title*='RedTeam' i]"
 				);
 				for (const el of labels) {
 					const text = String(el.textContent || "").trim();
@@ -8346,10 +8472,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					if (!shell || patched.has(shell)) return;
 					if (typeof shell.submit !== "function") return;
 					const origSubmit = shell.submit;
-					const origActionsSubmit = (shell.actions && typeof shell.actions.submit === "function")
-						? shell.actions.submit
-						: null;
-					patched.set(shell, { origSubmit, origActionsSubmit });
+					patched.set(shell, { origSubmit });
 					patchedShells.push(shell);
 					const bound = origSubmit.bind(shell);
 					shell.submit = function gatedSubmit(mode) {
@@ -8358,13 +8481,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 						} catch { /* 门禁异常时不吞掉发送 */ }
 						return bound(mode);
 					};
-					if (shell.actions && typeof shell.actions === "object") {
-						shell.actions.submit = () => shell.submit("queue");
-					}
 				};
 				const tick = () => {
 					try {
-						const sessions = hostSessions || (hostCtx && hostCtx.sessions);
+						const sessions = rewindSessions || (rewindHost && rewindHost.sessions);
 						const sid = currentSessionId(sessions);
 						if (!sid) return;
 						patchShell(conversationInput(sid));
@@ -8378,9 +8498,6 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 						const info = patched.get(shell);
 						if (!info) continue;
 						try { shell.submit = info.origSubmit; } catch { /* ignore */ }
-						if (info.origActionsSubmit && shell.actions) {
-							try { shell.actions.submit = info.origActionsSubmit; } catch { /* ignore */ }
-						}
 					}
 					patchedShells.length = 0;
 				};
@@ -8640,13 +8757,12 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					height: geom.h + "px",
 				},
 			},
-				h("div", { className: "dshp-dock-head", onMouseDown: startDrag, title: "按住拖动面板" },
+				h("div", { className: "dshp-dock-head", onMouseDown: startDrag, title: "Drag to move the panel" },
 					h("b", null, "dsh-purge"),
 					h("span", { style: { flex: 1 } }),
 					st.tab === "drill" && readDrillAuth()
 						? h("button", { type: "button", onClick: () => requestDrill("full") }, t("dock.full"))
 						: null,
-					h("button", { type: "button", title: t("dock.openSettings"), onClick: () => openSettingsSection() }, t("dock.openSettings")),
 					h("button", { type: "button", onClick: () => setDock({ open: false, authOpen: false, tab: "clean", pending: "tab" }) }, t("dock.close")),
 				),
 				h("div", { className: "dshp-dock-tabs", role: "tablist" },
@@ -8666,10 +8782,10 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 					}, t("dock.drill") + (readDrillAuth() ? "" : " · " + t("dock.unauthorized"))),
 				),
 				h("div", { className: "dshp-dock-body" }, body),
-				h("div", { className: "dshp-dock-resize-l", title: "拖动调整宽度", onMouseDown: startResizeLeft }),
-				h("div", { className: "dshp-dock-resize-r", title: "拖动调整宽度", onMouseDown: startResizeRight }),
-				h("div", { className: "dshp-dock-resize-b", title: "拖动调整高度", onMouseDown: startResizeBottom }),
-				h("div", { className: "dshp-dock-resize", title: "拖动调整大小", onMouseDown: startResize }),
+				h("div", { className: "dshp-dock-resize-l", title: "Drag to resize width", onMouseDown: startResizeLeft }),
+				h("div", { className: "dshp-dock-resize-r", title: "Drag to resize width", onMouseDown: startResizeRight }),
+				h("div", { className: "dshp-dock-resize-b", title: "Drag to resize height", onMouseDown: startResizeBottom }),
+				h("div", { className: "dshp-dock-resize", title: "Drag to resize", onMouseDown: startResize }),
 			);
 			let portal = null;
 			let authPortal = null;
@@ -8687,66 +8803,313 @@ body:not([data-ds-dark-theme]) .dshp-auth-legal{background:var(--dsw-alias-bg-la
 			);
 		}
 
-		/* 回退按钮与它的后端已整体移除（1.4.2）。
-		 * 原来的 installRewindUi 在 conversation.input.right 上注册「回退」按钮，
-		 * 并挂了一个每 1.2s 轮询 /dsh-purge/rewind 的 watcher。用户要求连作用一起删掉，
-		 * 所以这里不再注册任何槽位，也不再有轮询。
-		 *
-		 * 但它顺带还给 clientCurrentCwd / isRedteamModeActive / 发送前环境门禁
-		 * 提供了「当前会话」的入口。那段职责不能跟着删，否则这些功能拿不到会话，
-		 * 所以单独留一个只读注入，只取 sessions / uiWorkspace / conversation，
-		 * 不做任何 UI 注册、不发任何请求。 */
-		function installHostContext(ctx) {
-			hostCtx = ctx;
-			hostSessions = ctx.sessions || null;
-			hostWorkspace = ctx.uiWorkspace || null;
-			hostConversation = ctx.conversation || null;
-			return () => {
-				hostCtx = null;
-				hostSessions = null;
-				hostWorkspace = null;
-				hostConversation = null;
-			};
+		function isAutoPushedFlexChild(el) {
+			if (!el || el.nodeType !== 1) return false;
+			if (/heroOptions/i.test(String(el.className || ""))) return true;
+			try {
+				return window.getComputedStyle(el).marginLeft === "auto";
+			} catch {
+				return false;
+			}
+		}
+
+		/** 跟在工作区/模式后面；不要落到 heroOptions（margin-left:auto）后面，否则新建会话会把芯片甩到行尾。 */
+		function placeHeroChip(row, el) {
+			if (!row || !el) return;
+			let auto = null;
+			for (let i = 0; i < row.children.length; i += 1) {
+				const kid = row.children[i];
+				if (kid !== el && isAutoPushedFlexChild(kid)) {
+					auto = kid;
+					break;
+				}
+			}
+			if (auto) {
+				if (el.nextElementSibling !== auto) row.insertBefore(el, auto);
+				return;
+			}
+			if (el.parentNode !== row || row.lastElementChild !== el) row.appendChild(el);
+		}
+
+		/** 紧挨最后一个对话页签，不要 append 到整行末尾。 */
+		function placeTabChip(row, el) {
+			if (!row || !el) return;
+			const tabs = row.querySelectorAll(":scope > [role='tab']");
+			const last = tabs[tabs.length - 1];
+			if (last) {
+				if (el.previousElementSibling !== last) last.after(el);
+				return;
+			}
+			if (el.parentNode !== row) row.appendChild(el);
+		}
+
+		function hasInlinePurgeEntry() {
+			if (typeof document === "undefined") return false;
+			const chipBtns = document.querySelectorAll(".dshp-hero-chip-btn, .dshp-tab-btn");
+			for (let i = 0; i < chipBtns.length; i += 1) {
+				const btn = chipBtns[i];
+				if (!btn || (btn.closest && btn.closest(".dshp-dock, .dshp-launch"))) continue;
+				if (btn.offsetParent || (btn.getClientRects && btn.getClientRects().length)) return true;
+			}
+			const nodes = document.querySelectorAll("button, [role='tab'], [role='button'], [class*='chip']");
+			for (let i = 0; i < nodes.length; i += 1) {
+				const el = nodes[i];
+				if (!el || el.classList.contains("dshp-launch")) continue;
+				if (el.closest && el.closest(".dshp-dock, .dshp-launch")) continue;
+				if (String(el.textContent || "").trim() === "dsh-purge") return true;
+			}
+			return false;
+		}
+
+		function PurgeLauncher() {
+			const t = useT();
+			const st = useDock();
+			const [hide, setHide] = useState(hasInlinePurgeEntry);
+			useEffect(() => {
+				const sync = () => setHide(hasInlinePurgeEntry());
+				sync();
+				const obs = typeof MutationObserver !== "undefined"
+					? new MutationObserver(sync)
+					: null;
+				if (obs && document.body) obs.observe(document.body, { childList: true, subtree: true });
+				const iv = setInterval(sync, 800);
+				return () => {
+					if (obs) obs.disconnect();
+					clearInterval(iv);
+				};
+			}, []);
+			if (st.open || hide) return null;
+			return h("button", {
+				type: "button",
+				className: "dshp-launch",
+				"data-open": "0",
+				"data-hide": "0",
+				"data-testid": "dsh-purge-launch",
+				title: t("dock.newSession"),
+				onClick: () => toggleDock(),
+			}, t("dock.newSession"));
+		}
+
+		/** 首页：模式旁挂「dsh-purge」→ 打开插件。红队模式走模式下拉（registry 声明）。 */
+		function HeroNewSessionMount() {
+			const t = useT();
+			const st = useDock();
+			const [host, setHost] = useState(null);
+			useEffect(() => {
+				let dead = false;
+				let warnedMiss = false;
+				const ensure = () => {
+					if (dead || typeof document === "undefined") return;
+					/* 多路挂点兜底:语义化 data-* 优先,class 子串模糊匹配兜底(不绑定具体 CSS Module 哈希) */
+					const row =
+						document.querySelector('[data-dsh-hero-workspace-row]') ||
+						document.querySelector('[data-conversation-hero]') ||
+						document.querySelector('[class*="heroWorkspaceRow" i]') ||
+						document.querySelector('[class*="hero" i][class*="workspace" i][class*="row" i]');
+					if (!row) {
+						if (!warnedMiss) {
+							warnedMiss = true;
+							try { console.warn("[dsh-purge] HeroNewSessionMount: anchor row missing (the host may have changed)"); } catch { /* ignore */ }
+						}
+						setHost((prev) => (prev ? null : prev));
+						return;
+					}
+					warnedMiss = false;
+					let el = row.querySelector(":scope > .dshp-hero-chip");
+					if (!el) {
+						el = document.createElement("div");
+						el.className = "dshp-hero-chip";
+						el.setAttribute("data-testid", "dsh-purge-hero-chip");
+					}
+					placeHeroChip(row, el);
+					setHost((prev) => (prev === el ? prev : el));
+				};
+				ensure();
+				const obs = typeof MutationObserver !== "undefined"
+					? new MutationObserver(() => ensure())
+					: null;
+				if (obs) obs.observe(document.body, { childList: true, subtree: true });
+				const iv = setInterval(ensure, 1000);
+				return () => {
+					dead = true;
+					if (obs) obs.disconnect();
+					clearInterval(iv);
+				};
+			}, []);
+			if (!host) return null;
+			const btn = h("button", {
+				type: "button",
+				className: "dshp-hero-chip-btn" + (st.open ? " on" : ""),
+				title: t("dock.newSession"),
+				onClick: () => toggleDock(),
+			},
+				st.open ? h("span", { className: "dshp-live-dot", "aria-hidden": "true" }) : null,
+				t("dock.newSession"),
+			);
+			try {
+				const rd = require("react-dom");
+				if (rd && typeof rd.createPortal === "function") return rd.createPortal(btn, host);
+			} catch { /* host 可能没暴露 react-dom */ }
+			return null;
+		}
+
+		/** 挂在「对话 / 轨迹 / 上下文」这一排，紧挨上下文。 */
+		function TabRowPurgeMount() {
+			const t = useT();
+			const st = useDock();
+			const [host, setHost] = useState(null);
+			useEffect(() => {
+				let dead = false;
+				let warnedMiss = false;
+				const ensure = () => {
+					if (dead || typeof document === "undefined") return;
+					/* 多路挂点兜底:data-* 优先,ARIA / class 子串兜底 */
+					/* The tab row may be labelled in the host locale; match either language. */
+					const zhConversationTab = String.fromCharCode(0x5bf9, 0x8bdd);
+					const row =
+						document.querySelector("[data-conversation-tabs]") ||
+						document.querySelector("[data-conversation-tabrow]") ||
+						document.querySelector("[role='tablist'][aria-label*='" + zhConversationTab + "'], [role='tablist'][aria-label*='Conversation' i]") ||
+						document.querySelector("[class*='conversation' i][class*='tab' i][class*='row' i]");
+					if (!row) {
+						if (!warnedMiss) {
+							warnedMiss = true;
+							try { console.warn("[dsh-purge] TabRowPurgeMount: tab row anchor missing"); } catch { /* ignore */ }
+						}
+						setHost((prev) => (prev ? null : prev));
+						return;
+					}
+					warnedMiss = false;
+					let el = row.querySelector(":scope > .dshp-tab-chip");
+					if (!el) {
+						el = document.createElement("div");
+						el.className = "dshp-tab-chip";
+						el.setAttribute("data-testid", "dsh-purge-tab-chip");
+					}
+					placeTabChip(row, el);
+					setHost((prev) => (prev === el ? prev : el));
+				};
+				ensure();
+				const obs = typeof MutationObserver !== "undefined"
+					? new MutationObserver(() => ensure())
+					: null;
+				if (obs) obs.observe(document.body, { childList: true, subtree: true });
+				const iv = setInterval(ensure, 1000);
+				return () => {
+					dead = true;
+					if (obs) obs.disconnect();
+					clearInterval(iv);
+				};
+			}, []);
+			if (!host) return null;
+			const btn = h("button", {
+				type: "button",
+				className: "dshp-tab-btn" + (st.open ? " on" : ""),
+				title: st.open ? (t("dock.inSession") + " · On") : (t("dock.inSession") + " · Click to open"),
+				onClick: () => toggleDock(),
+			}, t("dock.inSession"));
+			try {
+				const rd = require("react-dom");
+				if (rd && typeof rd.createPortal === "function") return rd.createPortal(btn, host);
+			} catch { /* host 可能没暴露 react-dom */ }
+			return null;
+		}
+
+
+		function installRewindUi(ctx) {
+			rewindHost = ctx;
+			rewindSessions = ctx.sessions;
+			rewindWorkspace = ctx.uiWorkspace || null;
+			rewindConversation = ctx.conversation || null;
+			ctx.slots.inject("conversation.input.right", () => ctx.slots.register({
+				name: "conversation.input.right",
+				id: "dsh-purge-rewind",
+				order: 20,
+				inject: (sessionId) => ({
+					sessionId,
+					t: ctx.locale.bind(NS),
+				}),
+			}, RewindSafe));
+			// ctx.slots.inject("conversation.input.right", () => ctx.slots.register({
+			// 	name: "conversation.input.right",
+			// 	id: "dsh-purge-continue",
+			// 	order: 21,
+			// 	inject: (sessionId) => ({
+			// 		sessionId,
+			// 		t: ctx.locale.bind(NS),
+			// 	}),
+			// }, ContinueSafe));
+			ctx.effect(() => installRewindWatch(ctx), "dsh-purge: rewind watch");
+		}
+
+		// 普通 command 结果不会激活宿主的空会话；补上输入节点，让结果卡片可见。
+		const purgeCommandInputDefinition = {
+			kind: "dsh-purge-command-input",
+			target: "chat",
+			match: (event) => event.type === "command/run" && event.data.name === "purge"
+				? { id: String(event.data.commandId), role: "start" } : null,
+			start: (_context, match) => ({
+				commandId: match.event.data.commandId,
+				seq: match.event.seq,
+				time: match.event.time,
+				text: `/purge${(match.event.data.args ?? "").trimEnd()}`,
+			}),
+			update: (context) => context.state,
+			buildViewNode: (context) => context.state === undefined ? null : ({
+				key: context.key,
+				id: context.id,
+				kind: "dsh-purge-command-input",
+				target: "chat",
+				anchorSeq: context.state.seq - 0.1,
+				location: context.start?.location ?? { kind: "unresolved" },
+				visibility: "visible",
+				data: {
+					commandId: context.state.commandId,
+					text: context.state.text,
+					time: context.state.time,
+				},
+			}),
+		};
+
+		function PurgeCommandInputView({ node }) {
+			return h("div", {
+				role: "group", "aria-label": "/purge", "data-command-input": "",
+				style: { display: "flex", justifyContent: "flex-end", padding: "8px 24px" },
+			}, h("div", {
+				style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: "100%",
+					background: "var(--dsw-alias-bg-layer-2, #f3f4f6)", borderRadius: 12, padding: "10px 14px" },
+			}, node.data.text));
 		}
 
 		function apply(ctx) {
+			if (ctx.uiConversation && ctx.uiConversation.events && typeof ctx.uiConversation.events.register === "function") {
+				ctx.uiConversation.events.register(purgeCommandInputDefinition);
+				ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
+					name: "conversation.chat.node", key: "dsh-purge-command-input",
+				}, PurgeCommandInputView));
+			}
 			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-purge: dictionaries");
 			const t = ctx.locale.bind(NS);
 			translate = t;
-			purgeHost = ctx;
-			/* 主入口：设置 → DeepSeek Harness 破甲。
-			 * 官方 settings.section 契约只投影 id / order / label（没有 icon 字段），
-			 * 所以这里不给图标；导航行由设置外壳按 id 画，未知 id 落齿轮。
-			 * order 排在 xdpool(440) 之后，紧贴它的下一行。 */
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "dsh-purge",
-				order: 450,
-				label: () => t("page.nav"),
-				locale: NS,
-				inject: () => ({ t }),
-			}, SettingsPage));
-			installSettingsNavIcon(ctx, () => t("page.nav"));
-			/* 会话内只留三个必要件：首启提示、演练台浮窗（授权流程还要用）、发送前的环境门禁。
-			 * 右下角启动按钮 / 首页模式旁 / 会话标题旁那三个「dsh-purge」入口全部撤掉——
-			 * 界面只有设置里那一处，不再往对话界面塞按钮。 */
 			ctx.slots.inject("shell.overlay", () => ctx.slots.register({
 				name: "shell.overlay",
 				id: "dsh-purge-dock",
 				order: 50,
-			}, () => h(react.Fragment, null, h(WelcomeNotice), h(PurgeDock), h(EnvAdaptSendGate))));
-			/* 只补会话入口，不注册 UI。回退按钮已删除，见上面的说明。 */
+			}, () => h(react.Fragment, null, h(WelcomeNotice), h(PurgeLauncher), h(PurgeDock), h(HeroNewSessionMount), h(TabRowPurgeMount), h(EnvAdaptSendGate))));
 			try {
 				if (typeof ctx.inject === "function") {
-					ctx.inject(["sessions", "uiWorkspace", "conversation"], (host) => {
-						const detach = installHostContext(host);
-						try { host.effect?.(() => detach); } catch { /* 旧上下文无 effect */ }
-					});
+					ctx.inject(["sessions", "uiWorkspace", "workspaces", "conversation"], (host) => installRewindUi(host));
 				} else if (ctx.sessions) {
-					installHostContext(ctx);
+					installRewindUi(ctx);
 				}
 			} catch (e) {
-				try { console.warn("[dsh-purge] host context unavailable:", e); } catch { /* ignore */ }
+				try {
+					if (typeof ctx.inject === "function") {
+						ctx.inject(["sessions", "uiWorkspace", "conversation"], (host) => installRewindUi(host));
+					}
+				} catch (e2) {
+					try { console.warn("[dsh-purge] rewind ui skipped:", e2 || e); } catch { /* ignore */ }
+				}
 			}
 		}
 
