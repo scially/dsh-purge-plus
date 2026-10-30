@@ -1,0 +1,20 @@
+# Keep shipped bundles byte-identical to what the plugin writes.
+* text=auto eol=lf
+
+# Windows-only helper scripts keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.7z binary
+*.zip binary
+*.asar binary
+*.exe binary
+*.node binary
+*.woff binary
+*.woff2 binary
