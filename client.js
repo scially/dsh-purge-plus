@@ -9165,6 +9165,21 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
 					try { console.warn("[dsh-purge] rewind ui skipped:", e2 || e); } catch { /* ignore */ }
 				}
 			}
+			/* dsh-purge-plus: settings section BEGIN */
+			/* 设置 → 左侧导航多一页；内容是 dock 里那块清洗面板（自带外壳与 CSS）。 */
+			try {
+				ctx.slots.inject("settings.section", () => ctx.slots.register({
+					name: "settings.section",
+					id: "dsh-purge",
+					order: 60,
+					label: "dsh-purge",
+					locale: NS,
+					inject: () => ({ t: ctx.locale.bind(NS) }),
+				}, SettingsRoot));
+			} catch (e) {
+				try { console.warn("[dsh-purge] settings section skipped:", e); } catch { /* ignore */ }
+			}
+			/* dsh-purge-plus: settings section END */
 		}
 
 		exports.name = name;

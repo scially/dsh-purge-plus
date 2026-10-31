@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
-    "build:client": "node scripts/build-client.mjs",
+    "build:client": "node scripts/build-client.mjs && node scripts/patch-settings-ui.mjs",
     "postinstall": "node scripts/ensure-profile-bundle.mjs",
     "test": "node --test"
   },
