@@ -175,7 +175,8 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"purge.title": "补丁",
 			"override.title": "提示词",
 			"own.title": "本地靶场",
-			"own.hint": "开源版攻击任务只放行本机/内网 IP。域名会先解析，解析到的每一个地址都必须是私网或回环；hosts 把 .lab 指到公网 IP 也会拦。解析失败或混有公网地址一律拦截。",
+			"own.hint": "默认只放行本机/内网 IP：域名会先解析，解析到的每个地址都必须是私网或回环，hosts 把 .lab 指到公网 IP 也会拦。",
+			"own.allow": "名单里的主机额外放行，可填内网 IP 或自己有权测试的公网 IP / 主机名，一行一个。外部 IP 只有进了这份名单才不会被公网门禁拦下。",
 			"own.save": "保存名单",
 			"saved.own": "已保存自己的服务器",
 			"saved.own.dropped": "已保存。有 {n} 行不是单个 IP 或主机名，已丢掉",
@@ -536,7 +537,8 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"purge.title": "Patches",
 			"override.title": "Prompt",
 			"own.title": "Local lab only",
-			"own.hint": "The open-source build only allows localhost/private IPs. Domains are resolved first; every A/AAAA must be loopback or RFC1918. A hosts entry that points .lab at a public IP is blocked. Failed or mixed public answers are denied.",
+			"own.hint": "By default only localhost/private IPs pass: domains are resolved first and every A/AAAA must be loopback or RFC1918; a hosts entry pointing .lab at a public IP is blocked.",
+			"own.allow": "Hosts in this list are additionally allowed — private IPs, or public IPs / hostnames you are authorised to test, one per line. An external IP passes the public-network gate only when it is listed here.",
 			"own.save": "Save list",
 			"saved.own": "Own servers saved",
 			"saved.own.dropped": "Saved. {n} lines were not a single IP or hostname and were dropped",
@@ -1596,6 +1598,7 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 			const promptSeededRef = useRef(false);
 			const promptDirtyRef = useRef(false);
 			const promptAreaRef = useRef(null);
+			const ownAreaRef = useRef(null);
 			overrideRef.current = override;
 			defaultOverrideRef.current = defaultOverride;
 
@@ -1604,6 +1607,28 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 				const live = node && typeof node.value === "string" ? node.value : overrideRef.current;
 				overrideRef.current = live || "";
 				return overrideRef.current;
+			};
+
+			/* [dsh-purge-plus] 本地靶场名单：填内网 IP 或自己有权测试的公网 IP，一行一个。 */
+			const saveOwnServers = () => {
+				const node = ownAreaRef.current;
+				const live = node && typeof node.value === "string" ? node.value : ownServers;
+				setOwnServers(live);
+				apiJson("/dsh-purge/own-servers", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ content: live }),
+				}).then((d) => {
+					if (!d || !d.ok) {
+						setNotice({ kind: "error", text: (d && d.error) || tRef.current("err.override", { error: "" }) });
+						return;
+					}
+					if (typeof d.content === "string") setOwnServers(d.content);
+					setNotice({
+						kind: "ok",
+						text: (d.dropped || 0) > 0 ? tRef.current("saved.own.dropped", { n: d.dropped }) : tRef.current("saved.own"),
+					});
+				}).catch((e) => setNotice({ kind: "error", text: String((e && e.message) || e) }));
 			};
 
 			const syncPicks = (d) => {
@@ -2255,10 +2280,22 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 					className: "dshp-hint",
 					style: { margin: "8px 0 0", color: "var(--dshp-danger, #c44)", fontSize: 12 },
 				}, t("need.prompt")) : null,
-				h("div", { className: "dshp-sub" },
+				h("div", { className: "dshp-sub", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
 					h("h4", null, t("own.title")),
+					h(Btn, { tiny: true, disabled: !ownLoaded || patchBusy || uninstallBusy, onClick: saveOwnServers }, t("own.save")),
 				),
 				h("p", { className: "dshp-hint", style: { margin: "8px 0 0", color: "var(--dshp-mute)", fontSize: 12 } }, t("own.hint")),
+				h("textarea", {
+					className: "dshp-area",
+					ref: ownAreaRef,
+					value: ownServers,
+					onChange: (e) => setOwnServers(e.target.value),
+					spellCheck: false,
+					rows: 4,
+					style: { minHeight: 96, marginTop: 8 },
+					placeholder: "127.0.0.1\n10.0.0.23\n192.168.56.10",
+				}),
+				h("p", { className: "dshp-hint", style: { margin: "6px 0 0", color: "var(--dshp-mute)", fontSize: 12 } }, t("own.allow")),
 			);
 		}
 
