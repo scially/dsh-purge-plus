@@ -15,7 +15,7 @@ import {
 	filePatchOutcome,
 	patchStatus,
 	hostCompat,
-	HOST_TARGET,
+	HOST_TARGETS,
 	readHostVersion,
 } from '../lib/core.js'
 
@@ -35,7 +35,7 @@ if (!aiBase) {
 const host = readHostVersion(aiBase)
 const compat = hostCompat(aiBase)
 console.log('宿主 / host      :', host ? `${host.name}@${host.version}` : '(未识别)')
-console.log('声明适配 / target :', HOST_TARGET || '(空)')
+console.log('声明适配 / target :', HOST_TARGETS.join(' / ') || '(空)')
 console.log('适配判定 / compat :', compat.ok === null ? 'unknown' : compat.ok ? 'OK' : 'MISMATCH（仅告警，不阻止 apply）')
 console.log('aiBase           :', aiBase)
 console.log('')

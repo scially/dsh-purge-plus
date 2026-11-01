@@ -23,8 +23,16 @@
 | `a735867` | 把清洗面板注册进宿主「设置」菜单（`settings.section`） | 上游只提供 dock 浮层入口，没有设置页 |
 | `b5a6e63` | 重启交接全程写 `restart.log`；settle 分支等到真实监听再退出 | 上游 helper 是纯黑盒（`stdio: "ignore"` + 零落盘），失败时完全无法定位 |
 | `c5b9a07` | EPIPE 对照实验脚本 `scripts/verify-epipe.mjs` | 见下方第 4 节 |
-| `5f98386` | `dshTarget` → `0.2.1-rc.5`、`scripts/patch-dryrun.mjs`、`build:client` 串上 `patch-settings-ui.mjs` | 上游 `dshTarget` 仍停在 `rc.2`，会让面板常驻「未适配」假告警，而实测补丁全都能打 |
+| `5f98386` | `scripts/patch-dryrun.mjs`（只读诊断）、`build:client` 串上 `patch-settings-ui.mjs` | 诊断工具上游没有；`build:client` 必须重贴设置块，否则每次重建 `client.js` 都会丢 |
 | `bf5ec0d` | `.gitattributes` 统一 LF | 跨平台一致 |
+| 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这两个测试覆盖的是本地独有功能，保留 |
+
+**已撤回的本地偏离：**
+
+- `dshTarget`（曾改成 `0.2.1-rc.5`）。上游 1.1.88 改用
+  `dshTarget: "0.2.1-rc.2"` + `dshTargets: ["0.2.1-rc.2", "0.2.1-rc.5"]`，
+  且 `hostCompat` 变成 `targets.some(...)`，多版本声明更准确。
+  **本地已改回跟随上游**，不要再单独改 `dshTarget`。
 
 **有意与上游保持一致、不做的改动：**
 
@@ -74,17 +82,20 @@ git merge upstream/master                      # 有共同祖先，能直接 mer
 ## 3. 升级后的验证
 
 ```powershell
-node --test                                   # 全量测试，应 0 fail
+node --test                                   # 本地两个测试（上游已删自己的 test 目录）
 node scripts/patch-dryrun.mjs                 # 只读：逐 pattern 在宿主上试匹配，不写宿主
 node scripts/verify-restart.mjs               # 用真实 spawn 参数在空闲端口(3997)跑一遍交接，不碰 3080
 ```
 
 `patch-dryrun.mjs` 的读法：
 
-- `compat: OK` —— 宿主版本与 `dshTarget` 匹配
+- `compat: OK` —— 宿主版本命中 `dshTargets` 列表里的任意一项
 - **`pending`** —— pattern 能命中，只是还没 apply，点一次 Apply 即可
 - **`drifted`** —— 一条 pattern 都命中不了，上游改文案了，需要更新 pattern
 - `missing_file` —— 目标组件没装（如梁神），一般无需处理
+
+> 上游每次发版常会为新宿主版本**追加 pattern**，所以刚 merge 完出现几条 `pending` 是正常的
+> （例：1.1.88 为 rc.5 补了 `#36`/`#50`/`#53`/`#57`/`#62`）。点一次 Apply 即可。
 
 ---
 
@@ -133,7 +144,34 @@ Get-Content "$env:USERPROFILE\.dsh\dsh-purge\web-stdout.log" -Tail 40
 
 ---
 
-## 5. 回退
+## 5. 已知的上游问题（本地暂不修，保持与上游一致）
+
+### 5.1 `info.url` 是死代码，「端口杀不掉时重开页面」实际不生效
+
+上游在 `restart-web.js` 的 `waitFree` 失败分支里写了：
+
+```js
+openBrowser(info.url || "");   // 想「把页面重新打开」，避免 web 服务凭空消失
+```
+
+但 `lib/web.js` 的 `scheduleRestart()` 组装 payload 时**从来没有 `url` 字段**，
+所以 `info.url` 恒为 `undefined` → `openBrowser("")` → 函数开头 `if (!url) return;` 直接返回。
+**那段"重开页面"是空操作。**
+
+真要用上，得让 `scheduleRestart` 从 `$DSH_HOME/dsh-purge/web-server-<port>.json`
+（`writeRecord` 写的记录，里面有上次的带 token 地址）读出 `url` 一起传过去。
+本地选择不修，避免与上游持续冲突。
+
+### 5.2 上游删掉了整个 `test/` 目录
+
+1.1.87 的「审计加固与死代码清理」把 `test/` 和 `package.json` 的 `test` 脚本一并移除
+（`patch-status` / `profile-insert` / `score-rules` / `settle-policy` / `zip-extract` /
+`web-reclaim` 等用例都没了）。本地保留了自己的两个测试与 `test` 脚本；
+以后再 merge 时，若上游又动 `test/`，注意别把自己的测试一起删掉。
+
+---
+
+## 6. 回退
 
 合入上游那次做过历史重建，旧历史完整保存在远端备份分支：
 
