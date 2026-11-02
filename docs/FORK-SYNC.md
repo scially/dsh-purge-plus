@@ -21,12 +21,20 @@
 |---|---|---|
 | `4506a9b` | 恢复「本地靶场」外部 IP 名单：`writeAllowText` 真正落盘、`permittedHost` 查名单、公网门禁先查名单再查私网、面板补回编辑框 | 上游 1.1.73「open-source local-lab only」把这块收成了空壳（`writeAllowText` 不写盘、`permittedHost` 恒 false），靶场只能填内网 IP |
 | `a735867` | 把清洗面板注册进宿主「设置」菜单（`settings.section`） | 上游只提供 dock 浮层入口，没有设置页 |
-| `b5a6e63` | 重启交接全程写 `restart.log`；settle 分支等到真实监听再退出 | 上游 helper 是纯黑盒（`stdio: "ignore"` + 零落盘），失败时完全无法定位 |
-| `c5b9a07` | EPIPE 对照实验脚本 `scripts/verify-epipe.mjs` | 见下方第 4 节 |
 | `5f98386` | `scripts/patch-dryrun.mjs`（只读诊断）、`build:client` 串上 `patch-settings-ui.mjs` | 诊断工具上游没有；`build:client` 必须重贴设置块，否则每次重建 `client.js` 都会丢 |
 | `bf5ec0d` | `.gitattributes` 统一 LF | 跨平台一致 |
-| 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js`、`test/restart-url.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这几个测试覆盖的是本地独有功能与已修的 bug，保留 |
-| `readRecordedUrl` | `lib/web.js` 导出，重启时把记录里的带 token 地址传给 helper | 修上游死代码 `openBrowser(info.url)`（详见第 5.1 节）。这是**有意偏离上游**的修复，merge 时别被覆盖回去 |
+| 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js`、`test/restart-manual.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这几个测试覆盖的是本地独有功能与已修的 bug，保留 |
+
+**已下线的本地改动（2026-11-03，1.1.91）：**
+
+自动重启整条链**已经删掉**，不要再捡回来：
+
+- `b5a6e63`（重启全程写 `restart.log` + settle 等真实监听）——随 `lib/restart-web.js` 一起删除；
+- `c5b9a07`（EPIPE 对照实验 `scripts/verify-epipe.mjs`）——同上，脚本删除；
+- `readRecordedUrl`（`lib/web.js` 导出，重启时把记录里的 token 地址传给 helper）——`lib/restart-web.js` 没了，导出与测试一并删除。
+
+原因与失败模式见 `release-notes.md` 的 1.1.91：端口假空闲、假成功、helper 半路死掉，三条都无法在插件侧稳定兜底。
+现在 `scheduleRestart()` 只回一份「需要手动重启」的说明，宿主进程原样不动。
 
 **已撤回的本地偏离：**
 
@@ -62,10 +70,9 @@ git merge upstream/master                      # 有共同祖先，能直接 mer
 
 | 文件 | 原因 |
 |---|---|
-| `lib/restart-web.js` | 上游 `#197` 重写过交给逻辑（`web-reclaim.js`）；本地叠加了日志与 stdio 落文件 |
-| `lib/web.js` | 同上，本地在 `spawnRestartHelper` 内加了落盘日志 |
 | `lib/core.js` | 补丁定义区（`PATCHES` / `targetFiles`）几乎每次发版都动；**冲突时优先上游** |
 | `client.js` | 上游改 UI 文案/CSS 的高发区；本地只在 `apply()` 末尾有一段标记块 |
+| `lib/web.js` / `lib/host.js` | 本地把 `scheduleRestart` 改成「只回手动重启说明」；上游若继续改自动重启，**保留本地版本**（理由见 1.1.91 release notes） |
 
 ### 冲突处理原则
 
@@ -76,16 +83,17 @@ git merge upstream/master                      # 有共同祖先，能直接 mer
    node scripts/patch-settings-ui.mjs        # 幂等，重复跑只替换不重复插入
    ```
    该脚本带作用域自检：注册块若被插到 `apply(ctx)` 外面（`ctx` 未定义、会被 try/catch 静默吞掉）会直接拒绝写入。
-3. `lib/restart-web.js` 的 `stdio` **必须保持落文件**，不能退回上游的 `pipe`（原因见第 4 节）。
+3. 上游若又往 `scheduleRestart` 里塞 spawn/杀进程，**不要合**：本地只允许返回 `manualRestartPlan()`。
 
 ---
 
 ## 3. 升级后的验证
 
 ```powershell
-node --test                                   # 本地两个测试（上游已删自己的 test 目录）
+node --test                                   # 本地测试（上游已删自己的 test 目录）
 node scripts/patch-dryrun.mjs                 # 只读：逐 pattern 在宿主上试匹配，不写宿主
-node scripts/verify-restart.mjs               # 用真实 spawn 参数在空闲端口(3997)跑一遍交接，不碰 3080
+node scripts/build-client.mjs                 # 重嵌红队面板片段（改过 lib/redteam/client.js 时）
+node scripts/patch-settings-ui.mjs            # 重贴设置页注册块（幂等）
 ```
 
 `patch-dryrun.mjs` 的读法：
@@ -100,80 +108,47 @@ node scripts/verify-restart.mjs               # 用真实 spawn 参数在空闲�
 
 ---
 
-## 4. 两个已修复的坑（升级时别踩回去）
+## 4. 自动重启为什么整条下线（别再捡回来）
 
-### 4.1 EPIPE：重启看着成功，几秒后挂掉
+2026-11-03（1.1.91）之前，`scheduleRestart()` 会 detached 拉起 `lib/restart-web.js`：helper 等旧 server
+退出（等不到就 `taskkill`），再在同端口 `spawn` 新的 `dsh web`。日志与 EPIPE、静默失败这些坑都修过，
+但**失败模式本身消不掉**，而且都出现在用户机器上：
 
-旧 helper 用 `stdio: ["ignore", "pipe", "pipe"]` 起新进程，只为读那行带 token 的 URL。
-读完就 `process.exit(0)`，**管道读端随之关闭**；而 `dsh web` 会持续往 stdout 写日志，
-下一次写就是 `EPIPE: broken pipe, write` → 进程直接死。
+1. **端口假空闲**：判定「端口空了」用的是 `net.connect()`。宿主的 accept 队列被堵住时，Windows 会
+   直接回 RST，`connect` 报 ECONNREFUSED/超时 → 代码认为端口空了 → 不等旧进程退干净就 `spawn`
+   → 新进程 `EADDRINUSE` 秒退。实测复现：日志里同时出现 `new process exited early: code=1` 和
+   `new process listening on :PORT`。
+2. **假成功**：上一条里「有人监听」其实是还没退出的旧进程。helper 看到端口有人就 `exit(0) handoff done`，
+   旧进程 200ms 后退出 → 端口彻底没人。用户看到的就是「重启完 web 没了，只能手动 `dsh web`」。
+3. **helper 半路死掉**：`killOldServer` 之后一行日志都没有，进程消失，端口上什么都不剩
+   （2026-11-02 16:01 UTC 的 `restart.log` 就是现场）。没有任何插件侧手段能在它死后接管。
 
-所以现象是：页面打开了、看着重启成功，**几秒后突然挂掉**。日志对得上：
+三条都指向同一个结论：**进程交接不该由插件在一台看不见的 Windows 上做**。所以现在：
+`scheduleRestart()` 只写一行日志并返回 `{ restarting:false, needsManualRestart:true, command, note }`，
+前端弹「需要手动重启」并显示 `dsh web --port <当前端口>`；宿主进程、端口、helper 全都不碰。
 
-```
-17:24:11.895  new process listening on 3080
-17:24:12.396  reported url
-17:24:12.500  helper exit(0)      <- 管道读端消失
-              ...下一次写 stdout -> EPIPE -> 崩
-```
+`scripts/verify-epipe.mjs`、`scripts/verify-restart.mjs`、`test/restart-url.test.js` 也一起删了 ——
+它们测的对象已经不存在。
 
-对照实验（`scripts/verify-epipe.mjs`，同一个持续写 stdout 的模拟进程）：
-
-```
-A. stdio: pipe   -> uncaughtException: EPIPE: broken pipe, write -> exit 7
-B. stdio: <fd>   -> 正常存活，日志持续增长
-```
-
-修法：新进程 stdout/stderr 落到 `$DSH_HOME/dsh-purge/web-stdout.log`，
-URL 改为**增量扫描该文件**获取（扫描起点是 spawn 前的文件末尾，避免读到上一次的旧 token）。
-
-### 4.2 helper 全静默，失败零痕迹
-
-旧 helper `stdio: "ignore"` 且不落任何文件，父进程 250ms 后 `process.exit(0)`。
-一旦交接失败，用户只看到 `dsh web` 退出再也没回来，**任何日志里都查不到原因**。
-
-现在全程写 `$DSH_HOME/dsh-purge/restart.log`，包含 payload、`waitFree` 轮询、
-`taskkill`/回收结果、新进程 pid、`spawn error`、是否真的监听端口、退出码。
-另外做了「端口是否被占用」探测，用来区分「新进程没起来」和「起来了但没监听」。
-
-排查重启问题时先看这两个文件：
-
-```powershell
-Get-Content "$env:USERPROFILE\.dsh\dsh-purge\restart.log"   -Tail 40
-Get-Content "$env:USERPROFILE\.dsh\dsh-purge\web-stdout.log" -Tail 40
-```
+> 仍然保留 `lib/web-reclaim.js` + 注入宿主 `bin.js` 的启动前回收：那不是重启，
+> 而是清掉**旧版本**遗留的 detached server，避免下次 `dsh web` 撞 `EADDRINUSE` 起不来（#197）。
 
 ---
 
 ## 5. 已知的上游问题
 
-### 5.1 `info.url` 死代码 —— **已修复（本地）**
+### 5.1 `info.url` 死代码 —— 随自动重启一并作废
 
-上游在 `restart-web.js` 的 `waitFree` 失败分支里写了：
-
-```js
-openBrowser(info.url || "");   // 想「把页面重新打开」，避免 web 服务凭空消失
-```
-
-但 `lib/web.js` 的 `scheduleRestart()` 组装 payload 时**从来没有 `url` 字段**，
-所以 `info.url` 恒为 `undefined` → `openBrowser("")` → 函数开头 `if (!url) return;` 直接返回。
-**那段"重开页面"是空操作。**
-
-本地修法：`web.js` 新增导出 `readRecordedUrl(port)`，从
-`$DSH_HOME/dsh-purge/web-server-<port>.json`（`writeRecord` 写的记录，含上次的带 token 地址）
-读出 url，随 payload 一起传给 helper。只在 `waitFree` 失败时用到，此时旧进程仍活着，
-记录里的旧 token 依然有效。各种坏输入（文件缺失、坏 JSON、url 非字符串）都降级成 `""`。
-
-回归测试：`test/restart-url.test.js`（6 例）。
-
-> 检查是否生效：看 `$DSH_HOME/dsh-purge/restart.log` 里 host 侧那行
-> `restart requested; ... payload={...}` —— 现在应该能看到 `"url":"http://127.0.0.1:3080/?token=..."`。
+上游在 `restart-web.js` 的 `waitFree` 失败分支里调 `openBrowser(info.url || "")`，但 payload 从来没有
+`url` 字段，那段是空操作；本地曾用 `readRecordedUrl()` 修过。`restart-web.js` 删除后，
+`readRecordedUrl`、`web-server-<port>.json` 的写入方与 `test/restart-url.test.js` 一起移除。
+`lib/web-reclaim.js` 仍会读这份记录做启动前回收，只是不再有人往里写 url。
 
 ### 5.2 上游删掉了整个 `test/` 目录
 
 1.1.87 的「审计加固与死代码清理」把 `test/` 和 `package.json` 的 `test` 脚本一并移除
 （`patch-status` / `profile-insert` / `score-rules` / `settle-policy` / `zip-extract` /
-`web-reclaim` 等用例都没了）。本地保留了自己的两个测试与 `test` 脚本；
+`web-reclaim` 等用例都没了）。本地保留了自己的测试与 `test` 脚本；
 以后再 merge 时，若上游又动 `test/`，注意别把自己的测试一起删掉。
 
 ---

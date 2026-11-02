@@ -1,3 +1,31 @@
+# 1.1.91
+
+## 中文
+
+- 版本 **1.1.91**（fork 变更；上游 1.1.89 / 1.1.90 已合入）。
+- **自动重启下线**：`应用` 之后不再由插件自己重启 `dsh web`。这条链（detached helper → 杀旧进程 → 同端口起新进程）在 Windows 上的失败模式太多，且都无法在插件侧稳定兜底：
+  - 端口「假空闲」：`connect` 被 RST 时误判端口已空，新进程直接 `EADDRINUSE` 秒退；
+  - 假成功：旧进程还占着端口的那 200ms 里，helper 看到「有人监听」就报交接完成，旧进程随后退出 —— 现象就是「重启后 web 没了，要手动 `dsh web`」；
+  - helper 自己死在半路（杀完旧进程后没有任何日志），端口上什么都不剩。
+  现在 `scheduleRestart` 只返回一份**手动重启说明**（`needsManualRestart` + `command` + `note`），宿主进程原样保留，页面不断。面板会弹「需要手动重启」并显示要执行的命令（带当前端口），提示词部分即时生效，代码补丁在重启后生效。
+- **删掉的东西**：`lib/restart-web.js`、`lib/restart-watchdog.js`、`scripts/verify-restart.mjs`、`scripts/verify-epipe.mjs`、`test/restart-url.test.js`。`/dsh-purge/restart` 在 web 端不再杀进程、不再 spawn。
+- **新增回归测试** `test/restart-manual.test.js`：守住「重启只能回说明、不能声明 restarting」。
+- **保留**：`lib/web-reclaim.js` 与注入宿主 `bin.js` 的启动前回收脚本，用于清掉旧版本遗留的 detached server，避免 `EADDRINUSE` 起不来。
+- 卸载流程不变（仍然退出 → 删目录 → 重新拉起），因为它必须等宿主退出才能删干净。
+
+## English
+
+- **1.1.91** (fork change; upstream 1.1.89 / 1.1.90 merged).
+- **Automatic restart removed**: applying patches no longer restarts `dsh web` from inside the plugin. The handoff chain (detached helper → kill old process → spawn on the same port) had too many failure modes on Windows and no reliable plugin-side fallback:
+  - false "port free": a RST on `connect` was read as "port is free", so the new process died immediately with `EADDRINUSE`;
+  - false success: while the old process still held the port for ~200ms, the helper saw "something is listening" and reported a completed handoff; the old process then exited, leaving nothing behind — exactly "restart leaves web dead, I have to run `dsh web` myself";
+  - the helper itself could die mid-handoff (no log line after killing the old server), leaving the port unserved.
+  `scheduleRestart` now only returns a **manual restart plan** (`needsManualRestart` + `command` + `note`); the host process is left untouched and the page stays connected. The panel shows "manual restart needed" with the exact command (including the current port). Prompt changes are live immediately; code patches take effect after the restart.
+- **Removed**: `lib/restart-web.js`, `lib/restart-watchdog.js`, `scripts/verify-restart.mjs`, `scripts/verify-epipe.mjs`, `test/restart-url.test.js`. `/dsh-purge/restart` no longer kills or spawns anything on web.
+- **New regression test** `test/restart-manual.test.js` to keep the auto-restart from creeping back.
+- **Kept**: `lib/web-reclaim.js` and the boot-time reclaim injected into the host `bin.js`, which still clears detached servers left by older versions.
+- Uninstall is unchanged (exit → delete → relaunch), because it must wait for the host to exit before deleting its own files.
+
 # 1.1.90
 
 ## 中文

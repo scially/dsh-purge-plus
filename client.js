@@ -354,6 +354,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"restart.ask.body": "已经写入。重启后才会在当前客户端里生效。",
 			"restart.now": "现在重启",
 			"restart.notNow": "稍后",
+			"restart.manual.title": "需要手动重启",
+			"restart.manual.body": "补丁已写入宿主。插件不会自己重启了：关掉正在运行 dsh web 的窗口，重新执行下面这条命令即可生效。提示词部分已经即时生效。",
+			"restart.manual.command": "dsh web",
+			"restart.manual.gotIt": "知道了",
 			"restart.asarSwap": "补丁已写入磁盘。正在结束桌面进程并挪开 app.asar，完成后会自动重新打开；若仍无效，请先完全退出 Harness（托盘也关），再点一次应用。",
 			"surface.web": "Web",
 			"surface.desktop": "桌面端",
@@ -716,6 +720,10 @@ window.__ModuleLoader__.load({ id: "dsh-purge", factory: (require) => {
 			"restart.ask.body": "It is written. It takes effect in this client after a restart.",
 			"restart.now": "Restart now",
 			"restart.notNow": "Later",
+			"restart.manual.title": "Manual restart needed",
+			"restart.manual.body": "Patches are written. The plugin no longer restarts itself: close the window running dsh web and run the command below. Prompt changes are already live.",
+			"restart.manual.command": "dsh web",
+			"restart.manual.gotIt": "Got it",
 			"restart.asarSwap": "Patches are on disk. Quitting the desktop app and moving app.asar aside; it will reopen when done. If behavior is unchanged, fully quit Harness (including tray) and Apply again.",
 			"surface.web": "Web",
 			"surface.desktop": "Desktop",
@@ -1543,6 +1551,9 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 		}
 
 		function RestartAsk(props) {
+			/* manual = web 端：插件不再自己重启，这里只把「怎么重启」讲清楚，点了就关。 */
+			const manual = props.manual === true;
+			const cmd = props.command || props.t("restart.manual.command");
 			const node = h("div", {
 				className: "dshp-restart-mask",
 				"data-theme": props.theme === "dusk" ? "dusk" : "white",
@@ -1552,11 +1563,28 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 				onClick: (e) => { if (e.target === e.currentTarget && props.onLater) props.onLater(); },
 			},
 				h("div", { className: "dshp-restart-card" },
-					h("h4", { id: "dshp-restart-title" }, props.t("restart.ask.title")),
-					h("p", null, props.t("restart.ask.body")),
+					h("h4", { id: "dshp-restart-title" }, props.t(manual ? "restart.manual.title" : "restart.ask.title")),
+					h("p", null, props.t(manual ? "restart.manual.body" : "restart.ask.body")),
+					manual ? h("pre", {
+						style: {
+							margin: "4px 0 12px",
+							padding: "8px 10px",
+							borderRadius: 6,
+							fontSize: 13,
+							fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+							background: "rgba(127,127,127,0.14)",
+							userSelect: "all",
+							whiteSpace: "pre-wrap",
+							wordBreak: "break-all",
+						},
+					}, cmd) : null,
 					h("div", { className: "dshp-modal-ops" },
-						h(Btn, { onClick: props.onLater }, props.t("restart.notNow")),
-						h(Btn, { kind: "primary", onClick: props.onRestart }, props.t("restart.now")),
+						manual
+							? h(Btn, { kind: "primary", onClick: props.onLater }, props.t("restart.manual.gotIt"))
+							: [
+								h(Btn, { key: "later", onClick: props.onLater }, props.t("restart.notNow")),
+								h(Btn, { key: "now", kind: "primary", onClick: props.onRestart }, props.t("restart.now")),
+							],
 					),
 				),
 			);
@@ -1708,7 +1736,12 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 							return d;
 						}
 						if (d.restartAfter) {
-							setUpdateNotice({ kind: "ok", text: tr("update.restarting") });
+							/* web 不再自动重启：给出手动重启的弹窗，而不是「正在重启…」。 */
+							if (hostSurfaceOf(null) === "desktop") {
+								setUpdateNotice({ kind: "ok", text: tr("update.restarting") });
+							} else {
+								setAskRestart(true);
+							}
 							return d;
 						}
 						if (d.applied && d.reloadClient !== false) {
@@ -1924,7 +1957,7 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 									text: tr("restart.incomplete", { detail: parts.join("；") }),
 								});
 								loadAll();
-								if (d.restarting || d.needs_full_quit) {
+								if (d.restarting || d.needs_full_quit || d.needs_manual_restart) {
 									suppressRestartAsk.current = false;
 									setAskRestart(true);
 								}
@@ -2247,6 +2280,9 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 				askRestart ? h(RestartAsk, {
 					t: t,
 					theme: detectHostTheme(),
+					/* web：只提示，不重启；桌面端保留原来的「现在重启」（asar 换包仍走原路径）。 */
+					manual: hostSurface !== "desktop",
+					command: manualRestartCommand(),
 					onLater: () => {
 						suppressRestartAsk.current = true;
 						setAskRestart(false);
@@ -2939,10 +2975,6 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 			);
 		}
 
-		function reopenAfterRestart() {
-			window.location.reload();
-		}
-
 		/* 重启/卸载后的 500ms 轮询共用一个定时器：组件卸载或流程取消时要能停掉，
 		   否则面板关掉之后它还会跑到 90 秒超时。 */
 		let restartPollTimer = 0;
@@ -2950,44 +2982,33 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 			if (restartPollTimer) { clearTimeout(restartPollTimer); restartPollTimer = 0; }
 		}
 
-		function waitForRestart(setNotice, setBusy, t) {
-			stopRestartPolling();
-			const started = Date.now();
-			// 必须先看到旧进程掉线，再等新进程就绪；否则同进程立刻 200 会被当成「重启成功」又弹重启。
-			let sawDown = false;
-			const ping = () => {
-				fetch("/dsh-purge/status", { cache: "no-store", credentials: "same-origin" })
-					.then((r) => (r.ok ? r.json() : Promise.reject()))
-					.then((d) => {
-						if (!sawDown) {
-							retry();
-							return;
-						}
-						if (d && d.ok && d.ready !== false) reopenAfterRestart();
-						else retry();
-					})
-					.catch(() => {
-						sawDown = true;
-						retry();
-					});
-			};
-			const retry = () => {
-				if (Date.now() - started > 90000) {
-					setNotice({ kind: "error", text: t("restart.timeout") });
-					setBusy(false);
-					return;
-				}
-				restartPollTimer = setTimeout(ping, 500);
-			};
-			restartPollTimer = setTimeout(ping, 800);
+		/** web 端要用户自己敲的命令（带上当前端口，避免多实例起错地方）。 */
+		function manualRestartCommand() {
+			try {
+				const p = window.location.port;
+				return p ? "dsh web --port " + p : "dsh web";
+			} catch { /* 非浏览器环境 */ }
+			return "dsh web";
 		}
 
 		let restartOnce = false;
 
+		/**
+		 * 插件不再自己重启 dsh web：
+		 *   - web：什么都不做，把「手动重启」说清楚（不 POST、不轮询、页面不断）。
+		 *   - desktop：密封包换 asar 仍走原来的重启，逻辑保持不动。
+		 */
 		function restartDsh(setNotice, setBusy, t, surface) {
-			if (restartOnce) return;
-			const surf = surface || clientGuessSurface() || "desktop";
+			const surf = surface || clientGuessSurface() || "web";
 			const desktop = surf === "desktop" || clientGuessSurface() === "desktop";
+			if (!desktop) {
+				setNotice({
+					kind: "ok",
+					text: t("restart.manual.body") + "  " + manualRestartCommand(),
+				});
+				return;
+			}
+			if (restartOnce) return;
 			restartOnce = true;
 			setBusy(true);
 			setNotice({ kind: "ok", text: hostText(t, "restarting", surf) });
@@ -3006,21 +3027,16 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 				.then((d) => {
 					if (!d.ok) throw new Error(d.error || "restart failed");
 					const next = (d && d.surface) || surf;
-					const full = next === "desktop" || (d && d.fullApp) || desktop;
-					if (full && d.already) {
+					if (d.already) {
 						setNotice({ kind: "ok", text: hostText(t, "restarting", next) });
 						return;
 					}
-					if (full && d.restarting === false) {
+					if (d.restarting === false) {
 						clearTimeout(watch);
 						stop(d.error || "not started");
 						return;
 					}
 					setNotice({ kind: "ok", text: hostText(t, "restarting", next) });
-					if (full) return;
-					clearTimeout(watch);
-					restartOnce = false;
-					waitForRestart(setNotice, setBusy, t);
 				})
 				.catch((e) => {
 					const msg = String((e && e.message) || e || "");
@@ -7732,8 +7748,8 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
         api({ op: 'updateApply', target: (info && info.latest) || undefined }).then((r) => {
           setBusy(false)
           if (!r || r.ok === false) { setMsg({ err: (r && r.error) || '更新失败' }); return }
-          setMsg({ ok: '已安装 ' + (r.installed || '') + '，正在重启当前宿主…' })
-          /* 重启会断开这个页面：倒计时提示用户稍后刷新 */
+          setMsg({ ok: '已安装 ' + (r.installed || '') + '，需要手动重启 dsh 后生效。' })
+          /* 新版代码要重启宿主才会加载：这里只刷新页面，重启交给用户。 */
           setCountdown(6)
           const t = setInterval(() => {
             setCountdown((n) => {
@@ -7762,7 +7778,7 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
           ? h('button', {
               className: 'rt-btn rt-btn-primary', disabled: busy,
               onClick: () => { setOpen(true); setMsg(null) },
-              title: '发现新版本 ' + latest + '：点击查看并一键更新（会重启当前宿主）',
+              title: '发现新版本 ' + latest + '：点击查看并更新（装好后需手动重启 dsh）',
             }, busy ? '检查中…' : '有新版本 v' + latest)
           : h('button', {
               className: 'rt-btn', disabled: busy, onClick: () => check(false),
@@ -7788,11 +7804,11 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
                   ? h('div', { className: 'rt-foot', style: { padding: '4px 0' } }, notes.map((n, i) => h('div', { key: 'n' + i }, n)))
                   : null,
                 h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)', margin: '8px 0' } },
-                  '更新过程：安装新版本 → 自动重启当前宿主（官方 exe / 社区版 / dsh web；当前页面会断开，约 5–10 秒后自动刷新）。'
-                  + '重启前会检查有没有智能体在跑，有就拦住不动。'),
+                  '更新过程：安装新版本 → 手动重启宿主（官方 exe / 社区版 / dsh web）。插件不会自己重启了，'
+                  + '装好后会给出要执行的命令；重启前会检查有没有智能体在跑，有就拦住不动。'),
                 msg ? h('div', { className: msg.err ? 'rt-err' : 'rt-foot' }, msg.err || msg.ok) : null,
                 countdown > 0
-                  ? h('div', { className: 'rt-foot' }, '宿主正在重启，' + countdown + ' 秒后自动刷新页面…')
+                  ? h('div', { className: 'rt-foot' }, countdown + ' 秒后刷新页面（刷新后仍需手动重启 dsh 才会加载新代码）…')
                   : null,
                 h('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
                   h('button', { className: 'rt-btn', onClick: () => setOpen(false) }, '关闭'),
@@ -7801,7 +7817,7 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
                     disabled: busy || blockers.length > 0 || mode === 'dev',
                     title: mode === 'dev' ? '开发态安装请用仓库流程升级' : blockers.length ? '先解决上面的阻塞项' : '安装并重启',
                     onClick: apply,
-                  }, busy ? '更新中…' : '一键更新并重启'))))
+                  }, busy ? '更新中…' : '安装更新'))))
           : null)
     }
 

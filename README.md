@@ -159,7 +159,7 @@ dsh plugin --profile desktop add https://codeload.github.com/YuJunZhiXue/dsh-pur
 ```
 
 1. **Fully quit and reopen** the host you installed into. Web: stop `dsh web` and start it again. Desktop: quit the tray icon too, then open the exe.
-2. On that host, click **dsh-purge** beside the session title → **Clean** → **Apply**. A successful Apply restarts the host once.
+2. On that host, click **dsh-purge** beside the session title → **Clean** → **Apply**. A successful Apply writes the patches and then asks you to restart: the panel shows the exact `dsh web --port …` command. The plugin no longer restarts the host by itself.
 
 Done — verify with `/purge status` in chat. If pnpm asks about build scripts, or anything below does not appear, follow the step by step.
 
