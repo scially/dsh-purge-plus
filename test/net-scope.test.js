@@ -54,3 +54,20 @@ test('内网 IP 不需要名单', async () => {
   assert.equal(await publicHostHit('打 http://10.1.2.3/', home), null)
   assert.equal(await publicHostHit('打 http://192.168.56.10:8080/', home), null)
 })
+
+test('反引号 / 全角标点紧贴 URL 不产生伪主机（#215）', async () => {
+  const home = tmpHome()
+  // 以前 "`-u http://127.0.0.1:3000`。" 会把 "127.0.0.1:3000`" 当成公网 IP，
+  // 冒号让 isIp() 认成 IPv6，解析失败再判成越界目标，本地 lab 直接吃一句 DENIAL。
+  assert.equal(await publicHostHit('`-u http://127.0.0.1:3000`。New API 的 /api/status', home), null)
+  assert.equal(await publicHostHit('先起 docker，再 curl http://127.0.0.1:3000。', home), null)
+  assert.equal(await publicHostHit('http://localhost:3000，然后打开浏览器', home), null)
+})
+
+test('真公网 IP 带引号尾巴仍然拦', async () => {
+  const home = tmpHome()
+  const hit = await publicHostHit('`http://203.0.113.9:8080`', home)
+  assert.ok(hit, '公网 IP 不能因为尾巴被截断就漏放')
+  assert.equal(hit.kind, 'ip')
+  assert.equal(hit.label, '203.0.113.9')
+})
