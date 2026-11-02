@@ -3808,6 +3808,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 .rt-seg-cidr{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 .rt-seg-meta{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}
 .rt-toolbar{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap;align-items:center}
+.rt-addbar{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);flex-wrap:wrap;align-items:center}
 .rt-input{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:inherit;
   border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;outline:none;min-width:0}
 .rt-input:focus{border-color:var(--dsw-alias-brand-primary)}
@@ -4671,6 +4672,13 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
       const [web, setWeb] = React.useState(null)
       const [openId, setOpenId] = React.useState(null)
       const [detail, setDetail] = React.useState(null)
+      /* 手动加 IP：默认展开，进来就能看见输入框；可收起 */
+      const [adding, setAdding] = React.useState(true)
+      const [newIp, setNewIp] = React.useState('')
+      const [newName, setNewName] = React.useState('')
+      const [newPort, setNewPort] = React.useState('')
+      const [addBusy, setAddBusy] = React.useState(false)
+      const [addMsg, setAddMsg] = React.useState(null)
       /* 左侧「外网 C 段 / 内网 C 段」两组各自折叠，状态按靶标记住 */
       const sideCollapse = useCollapse('assets-side:' + eng)
       const seq = React.useRef(0)
@@ -4723,6 +4731,101 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
           if (r && r.ok && r.asset) setDetail(r.asset)
         }, () => {})
       }
+
+      const isIpLiteral = (text) => {
+        const s = String(text || '').trim()
+        if (/^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/.test(s)) return true
+        if (!s.includes(':')) return false
+        try {
+          const parsed = new URL('http://[' + s + ']/')
+          return parsed.hostname.charAt(0) === '['
+        } catch (e) { return false }
+      }
+      /* 单条：10.0.0.5 / 10.0.0.5:8080 / [fd00::1]:443 / fd00::1 */
+      const parseAssetToken = (raw) => {
+        let s = String(raw || '').trim()
+        if (!s) return null
+        let port = null
+        const bracket = /^\[([^\]]+)\](?::(\d{1,5}))?$/.exec(s)
+        if (bracket) {
+          s = bracket[1]
+          if (bracket[2]) port = Number(bracket[2])
+        } else if (/^\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$/.test(s)) {
+          const at = s.lastIndexOf(':')
+          port = Number(s.slice(at + 1))
+          s = s.slice(0, at)
+        }
+        return { ip: s, port: port }
+      }
+      const submitAdd = async () => {
+        const tokens = String(newIp || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean)
+        if (!tokens.length) { setAddMsg({ err: '先填 IP' }); return }
+        const fallbackText = String(newPort || '').trim()
+        const fallbackPort = fallbackText === '' ? null : Number(fallbackText)
+        if (fallbackPort !== null && (!Number.isInteger(fallbackPort) || fallbackPort < 1 || fallbackPort > 65535)) {
+          setAddMsg({ err: '端口要 1–65535' }); return
+        }
+        const seen = new Set()
+        const assets = []
+        const bad = []
+        for (const token of tokens) {
+          const entry = parseAssetToken(token)
+          if (entry === null || !isIpLiteral(entry.ip)) { bad.push(token); continue }
+          const port = entry.port !== null ? entry.port : fallbackPort
+          if (port !== null && (!Number.isInteger(port) || port < 1 || port > 65535)) { bad.push(token); continue }
+          if (seen.has(entry.ip)) continue
+          seen.add(entry.ip)
+          const asset = { ip: entry.ip, state: 'unknown', provenance: 'active', tool: 'manual' }
+          if (tokens.length === 1 && String(newName || '').trim()) asset.primary_name = String(newName).trim()
+          if (port !== null) asset.ports = [{ port: port, state: 'open', provenance: 'active', tool: 'manual' }]
+          assets.push(asset)
+        }
+        if (bad.length) { setAddMsg({ err: '格式不对：' + bad.join(', ') }); return }
+        if (!assets.length) { setAddMsg({ err: '没有可写入的 IP' }); return }
+        setAddBusy(true)
+        setAddMsg(null)
+        try {
+          const r = await api({ op: 'import', engagement: eng, scan: { tool: 'manual', argv: ['ui-add-ip'] }, assets: assets })
+          if (!r || r.ok === false) { setAddBusy(false); setAddMsg({ err: (r && r.error) || '写入失败' }); return }
+          setAddBusy(false)
+          setNewIp(''); setNewName(''); setNewPort('')
+          setAddMsg({ ok: '已写入 ' + assets.length + ' 台' })
+          /* 新资产可能落在当前筛选之外：清掉筛选，让它直接出现在列表里 */
+          setCidr(null); setQ(''); setQApplied(''); setService(''); setPort('')
+          setProv(''); setTestStatus(''); setPriority(''); setScope(''); setAssetState('')
+          setView('list')
+          if (onRefresh) onRefresh()
+        } catch (e) {
+          setAddBusy(false)
+          setAddMsg({ err: String((e && e.message) || e) })
+        }
+      }
+      const addBar = adding ? h('div', { className: 'rt-addbar' },
+        h('input', {
+          className: 'rt-input', style: { flex: '1 1 220px' },
+          placeholder: 'IP，逗号或空格分隔（只登记，不扫描）',
+          value: newIp,
+          onChange: (e) => setNewIp(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === 'Enter' && !e.isComposing) submitAdd()
+            if (e.key === 'Escape') { setAdding(false); setAddMsg(null) }
+          },
+        }),
+        h('input', {
+          className: 'rt-input', style: { flex: '0 1 160px' }, placeholder: '主机名（可选）',
+          value: newName, onChange: (e) => setNewName(e.target.value),
+          onKeyDown: (e) => { if (e.key === 'Enter' && !e.isComposing) submitAdd() },
+        }),
+        h('input', {
+          className: 'rt-input', style: { width: '92px' }, placeholder: '端口（可选）', inputMode: 'numeric',
+          value: newPort, onChange: (e) => setNewPort(e.target.value),
+          onKeyDown: (e) => { if (e.key === 'Enter' && !e.isComposing) submitAdd() },
+        }),
+        h('button', { className: 'rt-btn rt-btn-primary', disabled: addBusy, onClick: submitAdd }, addBusy ? '写入中…' : '添加'),
+        h('button', { className: 'rt-btn', onClick: () => { setAdding(false); setAddMsg(null) } }, '取消'),
+        addMsg ? h('span', { className: addMsg.err ? 'rt-err' : 'rt-foot', style: { flex: '1 1 100%' } },
+          addMsg.err || addMsg.ok) : null
+      ) : null
 
       const segs = (snapshot && snapshot.segments) || []
 
@@ -4820,7 +4923,12 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
         h('button', { className: 'rt-btn' + (view === 'list' ? ' rt-btn-primary' : ''), onClick: () => setView('list') }, '列表'),
         h('button', { className: 'rt-btn' + (view === 'timeline' ? ' rt-btn-primary' : ''), title: '按发现时间看资产（什么时候发现、哪天收了多少）', onClick: () => setView('timeline') }, '发现时间'),
         h('button', { className: 'rt-btn' + (view === 'domain' ? ' rt-btn-primary' : ''), onClick: () => setView('domain') }, '域名'),
-        h('button', { className: 'rt-btn' + (view === 'web' ? ' rt-btn-primary' : ''), onClick: () => setView('web') }, 'Web'))
+        h('button', { className: 'rt-btn' + (view === 'web' ? ' rt-btn-primary' : ''), onClick: () => setView('web') }, 'Web'),
+        h('button', {
+          className: 'rt-btn' + (adding ? '' : ' rt-btn-primary'),
+          title: '只写入资产库，不发起扫描；扫描由红队会话执行',
+          onClick: () => { setAdding((v) => !v); setAddMsg(null) },
+        }, adding ? '收起' : '登记 IP'))
 
       /* ── 结论行：一屏看清家底，数字点一下就是筛选 ───────────────────── */
       const tests = (snapshot && snapshot.tests) || {}
@@ -5019,6 +5127,7 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
 
       return h('div', { className: 'rt-split' }, side,
         h('div', { className: 'rt-main' }, view === 'testing' ? null : toolbar,
+          view === 'testing' ? null : addBar,
           conclusion,
           state.error ? h('div', { className: 'rt-err' }, state.error) : null,
           pane))
