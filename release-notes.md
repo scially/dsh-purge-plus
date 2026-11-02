@@ -8,7 +8,8 @@
   - 假成功：旧进程还占着端口的那 200ms 里，helper 看到「有人监听」就报交接完成，旧进程随后退出 —— 现象就是「重启后 web 没了，要手动 `dsh web`」；
   - helper 自己死在半路（杀完旧进程后没有任何日志），端口上什么都不剩。
   现在 `scheduleRestart` 只返回一份**手动重启说明**（`needsManualRestart` + `command` + `note`），宿主进程原样保留，页面不断。面板会弹「需要手动重启」并显示要执行的命令（带当前端口），提示词部分即时生效，代码补丁在重启后生效。
-- **删掉的东西**：`lib/restart-web.js`、`lib/restart-watchdog.js`、`scripts/verify-restart.mjs`、`scripts/verify-epipe.mjs`、`test/restart-url.test.js`。`/dsh-purge/restart` 在 web 端不再杀进程、不再 spawn。
+- **删掉的东西**：`scripts/verify-restart.mjs`、`scripts/verify-epipe.mjs`、`test/restart-url.test.js`。`/dsh-purge/restart` 在 web 端不再杀进程、不再 spawn。
+- **过渡期垫片**：`lib/restart-web.js` 保留了一个几十行的兼容文件。原因只有一个 —— 用户机器上可能还跑着**旧版内存代码**，旧代码在点「重启」时会 detached 拉起这个文件再自退；文件不在就会把 web 弄死。垫片只「等端口释放 → 把 `dsh web` 拉回来」，不杀进程、不判断交接。下一版可删。
 - **新增回归测试** `test/restart-manual.test.js`：守住「重启只能回说明、不能声明 restarting」。
 - **保留**：`lib/web-reclaim.js` 与注入宿主 `bin.js` 的启动前回收脚本，用于清掉旧版本遗留的 detached server，避免 `EADDRINUSE` 起不来。
 - 卸载流程不变（仍然退出 → 删目录 → 重新拉起），因为它必须等宿主退出才能删干净。
@@ -21,7 +22,8 @@
   - false success: while the old process still held the port for ~200ms, the helper saw "something is listening" and reported a completed handoff; the old process then exited, leaving nothing behind — exactly "restart leaves web dead, I have to run `dsh web` myself";
   - the helper itself could die mid-handoff (no log line after killing the old server), leaving the port unserved.
   `scheduleRestart` now only returns a **manual restart plan** (`needsManualRestart` + `command` + `note`); the host process is left untouched and the page stays connected. The panel shows "manual restart needed" with the exact command (including the current port). Prompt changes are live immediately; code patches take effect after the restart.
-- **Removed**: `lib/restart-web.js`, `lib/restart-watchdog.js`, `scripts/verify-restart.mjs`, `scripts/verify-epipe.mjs`, `test/restart-url.test.js`. `/dsh-purge/restart` no longer kills or spawns anything on web.
+- **Removed**: `scripts/verify-restart.mjs`, `scripts/verify-epipe.mjs`, `test/restart-url.test.js`. `/dsh-purge/restart` no longer kills or spawns anything on web.
+- **Migration shim**: `lib/restart-web.js` stays as a ~40-line compatibility file, only because a machine may still be running the **previous version in memory**: that code detaches this file on "Restart" and then exits itself. The shim only waits for the port to free and spawns `dsh web` back — no killing, no handoff verification. Removable next release.
 - **New regression test** `test/restart-manual.test.js` to keep the auto-restart from creeping back.
 - **Kept**: `lib/web-reclaim.js` and the boot-time reclaim injected into the host `bin.js`, which still clears detached servers left by older versions.
 - Uninstall is unchanged (exit → delete → relaunch), because it must wait for the host to exit before deleting its own files.

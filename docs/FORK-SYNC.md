@@ -29,9 +29,12 @@
 
 自动重启整条链**已经删掉**，不要再捡回来：
 
-- `b5a6e63`（重启全程写 `restart.log` + settle 等真实监听）——随 `lib/restart-web.js` 一起删除；
+- `b5a6e63`（重启全程写 `restart.log` + settle 等真实监听）——随 helper 一起删除；
 - `c5b9a07`（EPIPE 对照实验 `scripts/verify-epipe.mjs`）——同上，脚本删除；
-- `readRecordedUrl`（`lib/web.js` 导出，重启时把记录里的 token 地址传给 helper）——`lib/restart-web.js` 没了，导出与测试一并删除。
+- `readRecordedUrl`（`lib/web.js` 导出，重启时把记录里的 token 地址传给 helper）——helper 没了，导出与测试一并删除。
+
+`lib/restart-web.js` 只留了一个**过渡期兼容垫片**（1.1.91）：旧版内存代码点「重启」时仍会 detached 拉起它再自退，
+垫片只负责把 `dsh web` 拉回来，不杀进程、不做交接判断。等用户都重启过一次（1.1.92）就可以整个删掉。
 
 原因与失败模式见 `release-notes.md` 的 1.1.91：端口假空闲、假成功、helper 半路死掉，三条都无法在插件侧稳定兜底。
 现在 `scheduleRestart()` 只回一份「需要手动重启」的说明，宿主进程原样不动。
