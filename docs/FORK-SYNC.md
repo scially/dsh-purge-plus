@@ -25,7 +25,8 @@
 | `c5b9a07` | EPIPE 对照实验脚本 `scripts/verify-epipe.mjs` | 见下方第 4 节 |
 | `5f98386` | `scripts/patch-dryrun.mjs`（只读诊断）、`build:client` 串上 `patch-settings-ui.mjs` | 诊断工具上游没有；`build:client` 必须重贴设置块，否则每次重建 `client.js` 都会丢 |
 | `bf5ec0d` | `.gitattributes` 统一 LF | 跨平台一致 |
-| 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这两个测试覆盖的是本地独有功能，保留 |
+| 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js`、`test/restart-url.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这几个测试覆盖的是本地独有功能与已修的 bug，保留 |
+| `readRecordedUrl` | `lib/web.js` 导出，重启时把记录里的带 token 地址传给 helper | 修上游死代码 `openBrowser(info.url)`（详见第 5.1 节）。这是**有意偏离上游**的修复，merge 时别被覆盖回去 |
 
 **已撤回的本地偏离：**
 
@@ -144,9 +145,9 @@ Get-Content "$env:USERPROFILE\.dsh\dsh-purge\web-stdout.log" -Tail 40
 
 ---
 
-## 5. 已知的上游问题（本地暂不修，保持与上游一致）
+## 5. 已知的上游问题
 
-### 5.1 `info.url` 是死代码，「端口杀不掉时重开页面」实际不生效
+### 5.1 `info.url` 死代码 —— **已修复（本地）**
 
 上游在 `restart-web.js` 的 `waitFree` 失败分支里写了：
 
@@ -158,9 +159,15 @@ openBrowser(info.url || "");   // 想「把页面重新打开」，避免 web �
 所以 `info.url` 恒为 `undefined` → `openBrowser("")` → 函数开头 `if (!url) return;` 直接返回。
 **那段"重开页面"是空操作。**
 
-真要用上，得让 `scheduleRestart` 从 `$DSH_HOME/dsh-purge/web-server-<port>.json`
-（`writeRecord` 写的记录，里面有上次的带 token 地址）读出 `url` 一起传过去。
-本地选择不修，避免与上游持续冲突。
+本地修法：`web.js` 新增导出 `readRecordedUrl(port)`，从
+`$DSH_HOME/dsh-purge/web-server-<port>.json`（`writeRecord` 写的记录，含上次的带 token 地址）
+读出 url，随 payload 一起传给 helper。只在 `waitFree` 失败时用到，此时旧进程仍活着，
+记录里的旧 token 依然有效。各种坏输入（文件缺失、坏 JSON、url 非字符串）都降级成 `""`。
+
+回归测试：`test/restart-url.test.js`（6 例）。
+
+> 检查是否生效：看 `$DSH_HOME/dsh-purge/restart.log` 里 host 侧那行
+> `restart requested; ... payload={...}` —— 现在应该能看到 `"url":"http://127.0.0.1:3080/?token=..."`。
 
 ### 5.2 上游删掉了整个 `test/` 目录
 
