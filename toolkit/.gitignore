@@ -1,0 +1,5 @@
+# 本地工具箱：二进制不入库，只保留下载器与说明
+*.exe
+_dl/
+frp_*/
+nuclei-templates/
