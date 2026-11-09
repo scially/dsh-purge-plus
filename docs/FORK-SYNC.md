@@ -99,6 +99,32 @@ node scripts/build-client.mjs                 # 重嵌红队面板片段（改�
 node scripts/patch-settings-ui.mjs            # 重贴设置页注册块（幂等）
 ```
 
+### 3.1 维护命令（1.1.92）
+
+宿主一升级、锚点一漂移，先跑诊断，别急着改源码：
+
+```powershell
+dsh-purge diagnose --detail                  # 失配补丁 + 候选落点（文件:行号）
+dsh-purge diagnose --host <另一个 @deepseek-ai 目录>   # 直接对一份没装的宿主树做评估
+dsh-purge reanchor <id> --index <n> --text "<从宿主取出的真实片段>"
+dsh-purge reanchor <id> --clear              # 撤销
+dsh-purge probe --new / --check / --end      # 证明注入真的到达模型（扫会话日志）
+dsh-purge backup --label 说明 ; dsh-purge rollback [<id>] ; dsh-purge snapshots --prune 3
+dsh-purge exclude roleplay,minimal           # 这些预设不注入（命令/面板/工具照常）
+node scripts/exec-proof.mjs new              # 命令执行证据：要求目标侧算 SHA256(nonce)
+```
+
+**上游现状（2026-11-09）**：原仓库 `YuJunZhiXue/dsh-purge` 已经 404，账号下公开仓库为 0。
+社区接续版 `kingcharleslzy-ai/dsh-purge`（1.6.86，★5661）与我们**不是同一套历史**
+（我们的 `217d60d`/`c63ba4a` 在那边查不到），**不能 merge**，只能按功能移植。
+本 fork 目前只移植了 diagnose/reanchor、probe、backup/rollback、excludePresets、exec-proof 五块；
+对方的面板整页化、插件市场索引、独立安装器没有跟进。
+
+**0.2.2-rc.1 缺口**：把 rc.1 装在隔离目录用本插件引擎跑，86 条里 8 条失配
+（`#14 #40 #54 #60 #62 #67 #74` 真实失配，`#88` 是自标记续作）。
+`#40/#74/#67` 在注入装配链路上，所以 **rc.1 暂不写进 `dshTargets`**。
+修法：`diagnose --host <rc.1 的 @deepseek-ai 目录> --detail` → `reanchor`，或下一版把 rc.1 变体写进 `core.js`。
+
 `patch-dryrun.mjs` 的读法：
 
 - `compat: OK` —— 宿主版本命中 `dshTargets` 列表里的任意一项

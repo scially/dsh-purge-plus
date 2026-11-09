@@ -42,6 +42,9 @@ function printStatus(state) {
 }
 
 async function main() {
+  const sub = args[0] && !String(args[0]).startsWith("-") ? String(args[0]) : "";
+  if (sub) return await runSubcommand(sub, args.slice(1));
+
   const mode = args.find((a) => ["--apply", "--revert", "--uninstall", "--status", "--edit", "--help"].includes(a));
 
   if (mode === "--help" || args.includes("-h")) {
@@ -51,7 +54,17 @@ async function main() {
   dsh-purge --revert     回滚还原
   dsh-purge --uninstall  卸载插件（已应用则先还原）
   dsh-purge --edit       编辑注入文件 prompt-inject.md
-  dsh-purge --help       帮助`);
+  dsh-purge --help       帮助
+
+维护子命令:
+  dsh-purge diagnose [--detail] [--host <aiBase>]        锚点漂移诊断（只读）
+  dsh-purge reanchor <id> --index <n> --text "<片段>"     写一条本地重锚（不改源码）
+  dsh-purge reanchor <id> --clear [--index <n>]          清除重锚
+  dsh-purge probe --new | --check | --end                运行时探针（证明注入到达模型）
+  dsh-purge backup [--label 说明]                        建立宿主文件快照
+  dsh-purge rollback [<id>]                              回滚到快照（默认最新）
+  dsh-purge snapshots [--prune <n>]                      列出/清理快照
+  dsh-purge exclude [a,b] | --list | --clear             按预设排除提示词注入`);
     return;
   }
 
@@ -169,3 +182,73 @@ main().catch((e) => {
   console.error("[dsh-purge] error:", e);
   process.exit(1);
 });
+
+/* ---------------------------------------------------------------- 子命令 */
+
+function flag(name, def = null) {
+  const i = args.indexOf(`--${name}`);
+  if (i < 0) return def;
+  const next = args[i + 1];
+  return next && !String(next).startsWith("--") ? next : true;
+}
+
+async function runSubcommand(sub, rest) {
+  const maintenance = await import("../lib/maintenance.js");
+  const dshHome = core.findDshHome();
+  const host = typeof flag("host") === "string" ? flag("host") : undefined;
+  const out = (r) => {
+    if (r && r.text) console.log(r.text);
+    if (r && r.error) console.error("[ERROR] " + r.error);
+    if (r && r.ok === false) process.exitCode = 1;
+  };
+
+  switch (sub) {
+    case "diagnose":
+      return out(await maintenance.diagnose({ aiBase: host, dshHome, detail: args.includes("--detail") }));
+    case "reanchor": {
+      const id = rest.find((a) => !String(a).startsWith("--")) || flag("id");
+      const indexRaw = flag("index", "0");
+      const index = indexRaw === true ? 0 : Number(indexRaw);
+      const clear = args.includes("--clear");
+      return out(await maintenance.reanchor({
+        aiBase: host,
+        dshHome,
+        id,
+        index: Number.isFinite(index) ? index : 0,
+        text: typeof flag("text") === "string" ? flag("text") : undefined,
+        from: typeof flag("from") === "string" ? flag("from") : undefined,
+        clear,
+      }));
+    }
+    case "probe": {
+      if (args.includes("--new")) return out(maintenance.probeNew({ dshHome }));
+      if (args.includes("--check")) return out(maintenance.probeCheck({ dshHome }));
+      if (args.includes("--end")) return out(maintenance.probeEnd({ dshHome }));
+      return out(maintenance.probeStatus({ dshHome }));
+    }
+    case "backup":
+      return out(maintenance.backup({
+        aiBase: host,
+        dshHome,
+        label: typeof flag("label") === "string" ? flag("label") : "",
+        host: "",
+      }));
+    case "rollback":
+    case "restore": {
+      const id = rest.find((a) => !String(a).startsWith("--"));
+      return out(maintenance.rollback({ aiBase: host, dshHome, id }));
+    }
+    case "snapshots":
+      return out(maintenance.snapshots({ dshHome, prune: flag("prune", undefined) }));
+    case "exclude": {
+      if (args.includes("--list")) return out(maintenance.excludePresets({ dshHome, list: true }));
+      if (args.includes("--clear")) return out(maintenance.excludePresets({ dshHome, clear: true }));
+      const set = rest.find((a) => !String(a).startsWith("--"));
+      if (!set) return out(maintenance.excludePresets({ dshHome, list: true }));
+      return out(maintenance.excludePresets({ dshHome, set }));
+    }
+    default:
+      console.error(`未知子命令 ${sub}。跑 dsh-purge --help 看用法。`);
+      process.exitCode = 2;
+  }
+}

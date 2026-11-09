@@ -1,3 +1,27 @@
+# 1.1.92
+
+## 中文
+
+- 版本 **1.1.92**。本版没有合上游——原仓库 `YuJunZhiXue/dsh-purge` 已经 404（账号公开仓库为 0），社区接续版 `kingcharleslzy-ai/dsh-purge`（1.6.86）与我们**不同源**（我们的 commit 在那边不存在），只能按功能挑着移植。本版移植了其中五项，并补齐一项兼容性核查。
+- **锚点漂移诊断与本地重锚**（`diagnose` / `reanchor`）：宿主一升级就整段失配，以前只能改源码等发版。现在 `dsh-purge diagnose [--detail] [--host <aiBase>]` 逐条列出失配的 pattern 和候选落点（文件:行号），`dsh-purge reanchor <id> --index <n> --text "<从宿主取出的真实片段>"` 把锚点钉进 `$DSH_HOME/dsh-purge/anchor-overrides.json`，`--clear` 撤销。覆盖会在 apply / status / dryrun 全链路生效。
+- **运行时探针**（`probe`）：`probe --new` 生成一次性 nonce 并把 `<dsh_probe>` 段挂到注入正文末尾，模型回显后 `probe --check` 扫会话日志（zstd JSONL）确认——证明的是「注入真的到达模型」，而不是「文件写进去了」。`probe --end` 收尾，30 分钟自动过期。
+- **宿主快照 / 回滚**（`backup` / `rollback` / `snapshots`）：按 `targetFiles()` 把宿主文件整组快照到 `$DSH_HOME/dsh-purge/snapshots/<id>/`（manifest 带 sha256），`rollback [<id>]` 校验后原子还原；默认保留 5 份，`snapshots --prune <n>` 手动清理。解决「逐条 revert 撤不掉手改/别的插件改动」。
+- **按预设排除注入**（`excludePresets`）：`dsh-purge exclude roleplay,minimal` 会让这些预设不注入提示词（命令、面板、工具照常）。判断用**当前会话自己的预设**（`context.agent.session.header.agentPreset`），并行会话与子 Agent 各判各的；配了排除但解析不出预设时保守不注入。配置源：插件配置 `excludePresets` + `$DSH_HOME/dsh-purge/exclude-presets.json`（CLI 写）。
+- **命令执行证据**（`scripts/exec-proof.mjs`）：一次性挑战，要求目标侧算出 `SHA256(nonce)` 而不是回显 nonce，用来区分「只能写文件」和「命令真的执行了」。POSIX / macOS / PowerShell 三套命令由脚本直接生成。
+- **0.2.2-rc.1 兼容性核查（结论：暂不适配，不写进 dshTargets）**：把 `@deepseek-ai/dsh@0.2.2-rc.1` 完整装到隔离目录，用本插件的补丁引擎逐条跑：86 条里 **8 条失配** —— `#14`(escalation)、`#40`(system-prompt 注入保活)、`#54`(deliverables)、`#60`/`#62`(dsh-tools 审批)、`#67`/`#74`(agent-loop)、`#88`(自标记，属正常续作)。其中 `#40`/`#74`/`#67` 属于提示词注入与装配链路，**不能只改声明**。修法：`diagnose --host <rc.1 的 @deepseek-ai 目录> --detail` 取候选，`reanchor` 钉住；或者在下一版直接把 rc.1 变体写进 `core.js`。核实前 `dshTargets` 保持 `0.2.1-rc.2 / 0.2.1-rc.5`。
+- 自动重启仍维持 1.1.91 的决定：只在面板提示手动重启，不动进程。
+
+## English
+
+- **1.1.92**. No upstream merge this time: `YuJunZhiXue/dsh-purge` is gone (404, zero public repos), and the community continuation `kingcharleslzy-ai/dsh-purge` (1.6.86) has an **unrelated history** (our commits do not exist there). Five of its features were ported, plus one compatibility audit.
+- **Anchor drift diagnostics + local re-anchoring** (`diagnose` / `reanchor`): when a host upgrade breaks literal anchors you no longer have to edit sources and wait for a release. `dsh-purge diagnose [--detail] [--host <aiBase>]` lists every missed pattern with candidate hit sites (file:line); `dsh-purge reanchor <id> --index <n> --text "<real fragment from the host>"` pins it into `$DSH_HOME/dsh-purge/anchor-overrides.json`; `--clear` reverts. Overrides apply to apply/status/dryrun.
+- **Runtime probe** (`probe`): `probe --new` creates a nonce and appends a `<dsh_probe>` block to the injected prompt; after the model echoes it, `probe --check` scans session logs (zstd JSONL) — proving the injection *reached the model*, not just that a file was written. `probe --end` cleans up; 30-minute TTL.
+- **Host snapshots / rollback** (`backup` / `rollback` / `snapshots`): snapshots every `targetFiles()` entry into `$DSH_HOME/dsh-purge/snapshots/<id>/` with a sha256 manifest; `rollback [<id>]` verifies and atomically restores; keeps the newest 5, `snapshots --prune <n>` trims.
+- **Per-preset injection exclusion** (`excludePresets`): `dsh-purge exclude roleplay,minimal` keeps those presets free of prompt injection (commands, panel and tools stay). The decision uses the session's own preset (`context.agent.session.header.agentPreset`), so parallel sessions and subagents decide independently; when a list exists but the preset cannot be resolved, injection is skipped conservatively.
+- **Execution evidence** (`scripts/exec-proof.mjs`): a one-time challenge that requires the target side to compute `SHA256(nonce)` instead of echoing the nonce, distinguishing "can write files" from "can execute commands".
+- **0.2.2-rc.1 audit (verdict: not compatible yet; not declared)**: a full `@deepseek-ai/dsh@0.2.2-rc.1` tree was installed in isolation and checked with our own engine: **8 of 86 patches miss** — `#14`, `#40`, `#54`, `#60`, `#62`, `#67`, `#74` (real drift) and `#88` (self-marked, expected). `#40`/`#74`/`#67` are on the prompt-assembly path, so this cannot be fixed by editing metadata. Use `diagnose --host … --detail` + `reanchor`, or add rc.1 variants to `core.js` in a follow-up. `dshTargets` stays at `0.2.1-rc.2 / 0.2.1-rc.5` until then.
+- Automatic restart remains removed as of 1.1.91: the panel only tells you to restart manually.
+
 # 1.1.91
 
 ## 中文
