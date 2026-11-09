@@ -238,8 +238,13 @@ async function runSubcommand(sub, rest) {
       const id = rest.find((a) => !String(a).startsWith("--"));
       return out(maintenance.rollback({ aiBase: host, dshHome, id }));
     }
-    case "snapshots":
-      return out(maintenance.snapshots({ dshHome, prune: flag("prune", undefined) }));
+    case "snapshots": {
+      const pruneFlag = flag("prune", null);
+      return out(maintenance.snapshots({
+        dshHome,
+        prune: pruneFlag === null || pruneFlag === true ? (pruneFlag === true ? 5 : null) : pruneFlag,
+      }));
+    }
     case "exclude": {
       if (args.includes("--list")) return out(maintenance.excludePresets({ dshHome, list: true }));
       if (args.includes("--clear")) return out(maintenance.excludePresets({ dshHome, clear: true }));

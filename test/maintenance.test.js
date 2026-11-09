@@ -149,8 +149,28 @@ test("snapshot: 建快照 → 改文件 → 回滚，内容与 sha 校验通过"
 	fs.rmSync(aiBase, { recursive: true, force: true });
 });
 
-test("snapshot: 保留策略只留最新 N 份", () => {
-	const home = tmpHome("snap-prune");
+test("maintenance.snapshots: 不带 prune 只列表，绝不清理", async () => {
+	const { snapshots } = await load("lib/maintenance.js");
+	const home = tmpHome("snap-list");
+	const aiBase = tmpHome("snap-list-host");
+	const file = path.join(aiBase, "a.js");
+	fs.writeFileSync(file, "x");
+	snapshot.createSnapshot(aiBase, { dshHome: home, paths: [file], id: "s1" });
+	snapshot.createSnapshot(aiBase, { dshHome: home, paths: [file], id: "s2" });
+
+	const listed = snapshots({ dshHome: home });
+	assert.equal(listed.ok, true);
+	assert.ok(listed.text.includes("s1") && listed.text.includes("s2"));
+	assert.equal(snapshot.listSnapshots(home).length, 2);
+
+	const pruned = snapshots({ dshHome: home, prune: 1 });
+	assert.match(pruned.text, /已清理/);
+	assert.equal(snapshot.listSnapshots(home).length, 1);
+	fs.rmSync(home, { recursive: true, force: true });
+	fs.rmSync(aiBase, { recursive: true, force: true });
+});
+
+test("snapshot: 保留策略只留最新 N 份", () => {	const home = tmpHome("snap-prune");
 	const aiBase = tmpHome("snap-prune-host");
 	const file = path.join(aiBase, "a.js");
 	fs.writeFileSync(file, "x");
