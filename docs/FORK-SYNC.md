@@ -111,8 +111,21 @@ dsh-purge reanchor <id> --clear              # 撤销
 dsh-purge probe --new / --check / --end      # 证明注入真的到达模型（扫会话日志）
 dsh-purge backup --label 说明 ; dsh-purge rollback [<id>] ; dsh-purge snapshots --prune 3
 dsh-purge exclude roleplay,minimal           # 这些预设不注入（命令/面板/工具照常）
+dsh-purge groups [permission=off,context=on] # 补丁组开关（关掉组＝不应用、状态记 off）
 node scripts/exec-proof.mjs new              # 命令执行证据：要求目标侧算 SHA256(nonce)
 ```
+
+**1.1.94 从社区版搬了四块**（对方 1.6.87→1.7.18）：
+
+| 能力 | 本地落点 | 说明 |
+|---|---|---|
+| 回退备份保护（#211） | `core.backupAll()` | 已打过补丁的文件不再被当成原件备份；没有原件就不建 `.bak` |
+| 中文拒绝检测 + 两段重试 | `lib/refusal-retry.js` + `llm/stream` 钩子 | 默认开启；`config.refusalRetry:false` 关；审计在 `$DSH_HOME/dsh-purge/audit.log` |
+| Inspector 超限帧加固（#95/#96） | `lib/extra-patches.js` | 只丢超限帧不杀宿主；rc.2/rc.3 缺锚点 → `silentWhenMissing` 跳过 |
+| 补丁组开关 + 分组统计 | `lib/patch-groups.js` | `groups.json`；`apply` 跳过、状态 `off`、`summarizeByGroup()` |
+
+**没跟的**：社区版把设置搬成了侧栏整页、设置页共享、回退按钮默认隐藏——那是面板架构差异，
+本 fork 仍是「设置页 section + dock」，要跟得单独重排面板。dsh-go / NEXT 换包、签名 sidecar 校验与 web 场景无关。
 
 **上游现状（2026-11-09）**：原仓库 `YuJunZhiXue/dsh-purge` 已经 404，账号下公开仓库为 0。
 社区接续版 `kingcharleslzy-ai/dsh-purge`（1.6.86，★5661）与我们**不是同一套历史**

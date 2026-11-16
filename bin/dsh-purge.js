@@ -64,7 +64,8 @@ async function main() {
   dsh-purge backup [--label 说明]                        建立宿主文件快照
   dsh-purge rollback [<id>]                              回滚到快照（默认最新）
   dsh-purge snapshots [--prune <n>]                      列出/清理快照
-  dsh-purge exclude [a,b] | --list | --clear             按预设排除提示词注入`);
+  dsh-purge exclude [a,b] | --list | --clear             按预设排除提示词注入
+  dsh-purge groups [name=on|off]                         补丁组开关（permission / context）`);
     return;
   }
 
@@ -251,6 +252,10 @@ async function runSubcommand(sub, rest) {
       const set = rest.find((a) => !String(a).startsWith("--"));
       if (!set) return out(maintenance.excludePresets({ dshHome, list: true }));
       return out(maintenance.excludePresets({ dshHome, set }));
+    }
+    case "groups": {
+      const set = rest.find((a) => !String(a).startsWith("--"));
+      return out(maintenance.groups({ dshHome, set }));
     }
     default:
       console.error(`未知子命令 ${sub}。跑 dsh-purge --help 看用法。`);

@@ -1,3 +1,25 @@
+# 1.1.94
+
+## 中文
+
+- 版本 **1.1.94**：把社区版 1.6.87→1.7.18 里真正有用的四块搬过来。
+- **回退备份保护（对齐社区 #211）**：`backupAll()` 在建立 `.dshpurge.bak` 前先看补丁锚点——文件已经处于「已应用」状态时，**不再把打过补丁的内容当成原件备份**（以前这种情况回退等于没退）。没有原件就宁可不建 bak，并在返回里记 `skippedPatched`。
+- **中文拒绝检测 + 两段重试（对齐 1.7.12 / 1.7.17）**：新增 `lib/refusal-retry.js`，挂 `llm/stream` 钩子。先缓冲回答开头（400 字符 / 首个 tool-call / finish），命中推脱句式就丢弃这一段，换成加固语气重发；第二段换成本地合成夹具/小说口吻；`refusalDecompose`（默认开）再加一段「只给最小可交付组件」。默认开启，`config.refusalRetry:false` 关闭。命中规则包含 `这条我不做`、`结论：…我不出`、`我不会提供` 等 0.2.2 实测句式。审计写 `$DSH_HOME/dsh-purge/audit.log`（`refusal_retry` / `refusal_retry_outcome`，带 attempt/frame）。
+- **Inspector 超限帧加固（对齐 #95/#96）**：新增 `lib/extra-patches.js`，两条可选补丁给 Cordis 树记录预留 1 KiB；单帧仍超限时只丢这一帧、保留上一帧，其它 topic 与异常继续抛出（以前会把宿主带走）。0.2.2 客户端是压缩单行，补了 minified 锚点；rc.2/rc.3 官方已预留外壳，锚点缺失用 `silentWhenMissing` 标成跳过而不是漂移。
+- **补丁组开关（对齐 1.7.18 的组化）**：`lib/patch-groups.js` + `dsh-purge groups [permission=off,context=on]`。关掉的组在 `apply` 阶段直接跳过、状态记 `off`（不进分母、不刷失败）；`summarizeByGroup()` 供面板按组统计。两组默认开启，保持既有行为。
+- 面板整页化、侧栏设置共享、回退按钮默认隐藏这三项是社区版的**架构差异**（他们已把设置搬成侧栏整页），本 fork 沿用设置页 section，没有照搬；要做需要单独一轮重排面板。
+- 实测：88 条补丁（86 + inspector 2）；本机 rc.5 `patch-dryrun` 为 71 applied / 2 pending（新加的两条）/ 0 drifted；`node --test` 全绿。
+
+## English
+
+- **1.1.94**: ports the four genuinely useful items from the community project (1.6.87→1.7.18).
+- **Revert-backup protection (#211)**: `backupAll()` now checks the patch anchors first — when a file is already in the "applied" state it **no longer snapshots patched bytes as the original** (that made revert a no-op). If no pristine original exists, no `.bak` is created and the file is reported in `skippedPatched`.
+- **Chinese refusal detection + two-stage retry (1.7.12 / 1.7.17)**: new `lib/refusal-retry.js` hooked into `llm/stream`. It buffers the head of the answer (400 chars / first tool-call / finish); on a refusal it drops that attempt and re-sends with a firmer nudge, then a local-synthetic-fixture/fiction framing, then (with `refusalDecompose`, on by default) a smallest-deliverable-component frame. Enabled by default; `config.refusalRetry:false` disables. Patterns include `这条我不做`, `结论：…我不出`, `我不会提供`. Audited to `$DSH_HOME/dsh-purge/audit.log` with attempt/frame.
+- **Inspector frame hardening (#95/#96)**: new `lib/extra-patches.js` with two optional patches that reserve 1 KiB of record overhead for the Cordis tree and drop only the oversized frame (previously it took the host down). Includes a minified anchor for the 0.2.2 single-line client bundle; hosts that already reserve the wrapper report `skipped` via `silentWhenMissing` instead of drifting.
+- **Patch groups (1.7.18)**: `lib/patch-groups.js` + `dsh-purge groups [permission=off,context=on]`. Disabled groups are skipped during `apply` and reported as `off` (excluded from totals, not failures); `summarizeByGroup()` feeds per-group counters. Both groups default to on, preserving existing behaviour.
+- The community's sidebar-page panel, shared settings page and default-hidden rewind button are architecture differences (their settings moved to a full sidebar page); this fork keeps the settings section, so those were not ported.
+- Measured: 88 patches (86 + 2 inspector); local rc.5 dry-run 71 applied / 2 pending (the new ones) / 0 drifted; `node --test` green.
+
 # 1.1.93
 
 ## 中文
