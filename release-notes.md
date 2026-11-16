@@ -1,3 +1,29 @@
+# 1.1.93
+
+## 中文
+
+- 版本 **1.1.93**：**适配 DSH 0.2.2-rc.3**（npm `next`，2026-11-13 发布；`latest` 仍指 rc.1），同时回补 0.2.2-rc.1。
+- 新增 `lib/host-variants.js`：**新宿主的锚点变体集中在这一个文件**，加载时追加到对应补丁的 `replacements` 之后，`core.js` 里的上游原文不动（merge 冲突面最小）。同时补了三个搬家的目标文件键：
+  - `ptc-tool` → `dsh-tool-executor-ptc/lib/index.js`（#60 的 run_code 文案）；
+  - `dsh-tools-pipeline(-types)` → `dsh-tools/lib/pipeline.js`、`…/types/pipeline.js`（#62 的审批 fail-open）；
+  - `deliverable-file-references` → `dsh-deliverable-file-references/lib/index.js`（#54）。
+- 覆盖的变体：#13/#14/#35（0.2.2 把 escalation 三处 throw 换成带错误码的 `SandboxEscalationError`，包也从 `dsh-escalation` 并进 `dsh-sandbox`）、#40（assemble 返回值新增 `tools`，complete 预设要连 tools 一起保留注入）、#54（句子搬家且句首多一个空格）、#56（会话客户端被 minify 成单行，回退改成压缩版 `rewindVisibleEntries` 方案）、#62（审批判断搬进 pipeline，锚点收敛到一行 `ctx.get("approval")`）、#67（去固定缩进的正则）、#74（装配前挂钩改到 `claim`/`model.current()` 之间）。
+- **实测（把 0.2.2-rc.1 / rc.3 各装一份到隔离目录，用本插件引擎逐条跑）**：
+  - rc.3：86 条 → pending 64 / applied 5 / **na 14** / missing 1 / skipped 1 / **drifted 1**；唯一那条 `#88` 是 #87 的续作（自己的 marker，干净树上必然不命中，应用后即 applied）。
+  - rc.1：同样只剩 `#88`，从原来的 8 条失配降到 1 条。
+  - 本机 rc.5：`patch-dryrun` 仍是 71 applied / 0 pending / 0 drifted，无回归。
+  - 因此 `dshTargets` 增加 **`0.2.2-rc.1`** 与 **`0.2.2-rc.3`**（这两个是实测过的）。rc.2 未单独验证，暂不声明——落在 rc.2 上只会出 MISMATCH 告警，不阻止 apply。
+- **明确的缺口**：`#77`（回退时丢弃已发送项）在 0.2.2 的压缩客户端里没有对应锚点，`lib/host-variants.js` 的 `HOST_VARIANTS_SKIP` 把它在 rc.2/rc.3 上标成 `na`（比假装成功诚实）。下一版补 minified 变体后删掉这条。
+
+## English
+
+- **1.1.93**: **DSH 0.2.2-rc.3 support** (npm `next`, published 2026-11-13; `latest` still points at rc.1), plus 0.2.2-rc.1.
+- New `lib/host-variants.js`: host-specific anchor variants live in one file and are appended to each patch's `replacements` at load time, leaving the upstream literals in `core.js` untouched (minimal merge conflict surface). Three relocated target-file keys were added: `ptc-tool`, `dsh-tools-pipeline(-types)` and `deliverable-file-references`.
+- Variants cover #13/#14/#35 (0.2.2 moved escalation into `dsh-sandbox` and throws `SandboxEscalationError` with codes), #40 (`tools` added to the assemble result), #54 (sentence moved, leading space), #56 (minified conversation client — compressed `rewindVisibleEntries` approach), #62 (approval check moved into the pipeline), #67 (indentation-free regex) and #74 (prepare hook moved between `claim` and `model.current()`).
+- **Measured** on isolated installs of 0.2.2-rc.1 and 0.2.2-rc.3 with our own engine: rc.3 → 86 patches, `drifted: 1` (only `#88`, the self-marked follow-up of #87); rc.1 → also down from 8 to 1. Local rc.5 unchanged (71 applied / 0 pending / 0 drifted).
+- `dshTargets` now includes `0.2.2-rc.1` and `0.2.2-rc.3` (both measured). rc.2 is not declared; it would only raise the non-blocking MISMATCH warning.
+- **Known gap**: `#77` (rewind drops sent inputs) has no anchor in the minified 0.2.2 client; `HOST_VARIANTS_SKIP` reports it as `na` on rc.2/rc.3 rather than pretending success.
+
 # 1.1.92
 
 ## 中文

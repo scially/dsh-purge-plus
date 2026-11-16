@@ -120,10 +120,12 @@ node scripts/exec-proof.mjs new              # 命令执行证据：要求目标
 本 fork 目前只移植了 diagnose/reanchor、probe、backup/rollback、excludePresets、exec-proof 五块；
 对方的面板整页化、插件市场索引、独立安装器没有跟进。
 
-**0.2.2-rc.1 缺口**：把 rc.1 装在隔离目录用本插件引擎跑，86 条里 8 条失配
-（`#14 #40 #54 #60 #62 #67 #74` 真实失配，`#88` 是自标记续作）。
-`#40/#74/#67` 在注入装配链路上，所以 **rc.1 暂不写进 `dshTargets`**。
-修法：`diagnose --host <rc.1 的 @deepseek-ai 目录> --detail` → `reanchor`，或下一版把 rc.1 变体写进 `core.js`。
+**0.2.2 适配（1.1.93）**：新增 `lib/host-variants.js` —— 新宿主的锚点变体全部集中在那个文件，
+加载时追加到补丁的 `replacements`，`core.js` 里的上游原文保持不动（merge 冲突面最小）。
+- 已实测：0.2.2-rc.1 / 0.2.2-rc.3 各装一份隔离目录跑引擎，只剩 `#88`（#87 的续作，干净树上必然不命中）；
+  本机 rc.5 仍是 71 applied / 0 pending / 0 drifted。`dshTargets` 因此加了 rc.1 与 rc.3。
+- 已知缺口：`#77`（回退丢弃已发送项）在 0.2.2 压缩客户端里没有锚点，`HOST_VARIANTS_SKIP` 标成 `na`。
+- 以后再接新宿主：把变体写进 `lib/host-variants.js`，别去改 `core.js` 的 PATCHES 字面量。
 
 `patch-dryrun.mjs` 的读法：
 
