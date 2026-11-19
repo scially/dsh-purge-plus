@@ -124,21 +124,56 @@ node scripts/exec-proof.mjs new              # 命令执行证据：要求目标
 | Inspector 超限帧加固（#95/#96） | `lib/extra-patches.js` | 只丢超限帧不杀宿主；rc.2/rc.3 缺锚点 → `silentWhenMissing` 跳过 |
 | 补丁组开关 + 分组统计 | `lib/patch-groups.js` | `groups.json`；`apply` 跳过、状态 `off`、`summarizeByGroup()` |
 
+**1.1.95 从社区版搬了五块**（对方 1.7.18→HEAD `e519253`）：
+
+| 能力 | 本地落点 | 说明 |
+|---|---|---|
+| 拒绝重试四段化（1.7.19/1.7.20） | `lib/refusal-retry.js` + `lib/index.js` 钩子 | fail-open（重试流挂了就放行上一轮缓冲）、重试改走 `ctx.llm.stream()` 新 waterfall（`next` 只能调一次）+ `__dshPurgeRefusalRetry` 重入标记、seed 臂（并进最后一条 user 消息，**content 必须是块数组**）、`empty_after_retry` / `partial_refused` 诚实结局 |
+| identity disposer 复用（PR #249） | `lib/identity.js` `bindSlot()` | 同一 `(slot, rewriteFn)` 返回同一 disposer，堵住 400ms 心跳往 `wrapDisposers` 无限塞闭包；**保留本 fork 的 noop 语义**，不跟社区的 `slot.rewrite = null` |
+| `/status` 逐补丁计数（bd3d487） | `lib/index.js` HTTP payload | 不再用分组级 `display_*` 当条数，避免与 `patch_status` 对不上、把 skipped/drifted 算进 ready |
+| 梁神候选路径枚举（0729f10 的小切片） | `lib/core.js` `listLiangshenPresetYmlFiles()` | `profiles/` 下所有 profile × 三种 node_modules 布局，不再硬编码 web/desktop |
+| 拒绝语料回归 | `test/refusal-corpus.test.js` | 49 正样本 / 12 负样本；`KNOWN_BROAD` 记录已知误伤，不接受以此收窄动词表 |
+
+**明确不跟的（1.7.18→HEAD）**：patch 18 双布局（本 fork 出厂 pattern + `host-variants` 已等价）、
+patch 71 整套文件证据（本 fork 没有 `preset-presence`/`selfcheck` 消费者）、`verifyRemovedFromBackup`
+（本 fork #54 仍写 marker）、社区 #90 steering 那半（本 fork 没有对应补丁）、面板/评测脚手架/CI 全部跳过。
+
 **没跟的**：社区版把设置搬成了侧栏整页、设置页共享、回退按钮默认隐藏——那是面板架构差异，
 本 fork 仍是「设置页 section + dock」，要跟得单独重排面板。dsh-go / NEXT 换包、签名 sidecar 校验与 web 场景无关。
 
-**上游现状（2026-11-09）**：原仓库 `YuJunZhiXue/dsh-purge` 已经 404，账号下公开仓库为 0。
-社区接续版 `kingcharleslzy-ai/dsh-purge`（1.6.86，★5661）与我们**不是同一套历史**
+**上游现状（2026-11-19 复核）**：原仓库 `YuJunZhiXue/dsh-purge` 已经 404，账号下公开仓库为 0。
+社区接续版 `kingcharleslzy-ai/dsh-purge`（HEAD `e519253` = 1.7.20，★5.6k+）与我们**不是同一套历史**
 （我们的 `217d60d`/`c63ba4a` 在那边查不到），**不能 merge**，只能按功能移植。
-本 fork 目前只移植了 diagnose/reanchor、probe、backup/rollback、excludePresets、exec-proof 五块；
-对方的面板整页化、插件市场索引、独立安装器没有跟进。
+到 1.1.95 为止，已移植：diagnose/reanchor、probe、backup/rollback、excludePresets、exec-proof、
+备份保护、拒绝重试（含 1.7.19/1.7.20 的四段升级）、identity disposer 复用、`/status` 逐补丁计数、
+梁神 profile 枚举；对方的面板整页化、插件市场索引、独立安装器、`preset-presence`/`selfcheck`
+那套证据链没有跟进（本 fork 没有对应消费者）。
 
-**0.2.2 适配（1.1.93）**：新增 `lib/host-variants.js` —— 新宿主的锚点变体全部集中在那个文件，
+移植时**按 name 对齐，不按 id**：社区 #90 = `RESTORE_NATIVE_STEERING`，本 fork #90 = `SKILL_BADGE`
+（= 社区 #94）。另外社区 HEAD 的 `withNudge` 对字符串 content 会**静默丢掉 nudge**，本 fork 两种形态都覆盖 ——
+merge 冲突时保留本 fork 版本，别抄回去。
+
+**0.2.2 适配（1.1.93→1.1.95）**：新增 `lib/host-variants.js` —— 新宿主的锚点变体全部集中在那个文件，
 加载时追加到补丁的 `replacements`，`core.js` 里的上游原文保持不动（merge 冲突面最小）。
-- 已实测：0.2.2-rc.1 / 0.2.2-rc.3 各装一份隔离目录跑引擎，只剩 `#88`（#87 的续作，干净树上必然不命中）；
-  本机 rc.5 仍是 71 applied / 0 pending / 0 drifted。`dshTargets` 因此加了 rc.1 与 rc.3。
-- 已知缺口：`#77`（回退丢弃已发送项）在 0.2.2 压缩客户端里没有锚点，`HOST_VARIANTS_SKIP` 标成 `na`。
-- 以后再接新宿主：把变体写进 `lib/host-variants.js`，别去改 `core.js` 的 PATCHES 字面量。
+- 已实测：0.2.2-rc.1 / 0.2.2-rc.3 / **0.2.2-rc.4 / rc.5** 各装一份隔离目录跑引擎；
+  rc.4 与 rc.5 的会话客户端是同一份字节，所以 rc.3 实测覆盖 rc.4。
+- 1.1.95 起 rc.5 干净树 `pending 67 / applied 5 / drifted 1`（只剩 `#88`，自标记续作），
+  Apply 一轮 `failed 0`，应用后 `applied 73 / 0 pending / 0 drifted`，**再 Apply 一轮 0 写盘**。
+  `dshTargets` 因此是 `0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / rc.3 / rc.4 / rc.5`（rc.2 未单独实测，不声明）。
+- 1.1.95 补的三块（都在 `host-variants.js`，`core.js` 只多了一个合并循环）：
+  1. `#77` 的**压缩客户端变体**：0.2.2-rc.2 起会话客户端压成一行，出厂缩进式 pattern 一条不中，
+     以前只能标 `na`。压缩锚点在整份产物里唯一，`isRewindMarker` 用 `typeof` 守卫调 #56 注入的那份；
+     模式一次即消费 ⇒ 天然幂等。`HOST_VARIANTS_SKIP` 随之清空。
+  2. `#62` 的**重复注入**：两条变体的 `replace` 自带 `pattern`，而 `skipIfMarked` 只管出厂 replacement，
+     于是每轮 Apply 各再插一遍（30 轮仍在长）。变体补 `insertProbe` 后二次 Apply 零写盘。
+  3. `HOST_VARIANT_FLAGS`（`markersAny` / `addMarkers` / `softSettle`）：新宿主把同一段逻辑搬了家，
+     出厂 marker 永远凑不齐 → Apply 成功后状态页反而报漂移（rc.5 上 4 条）。只给确实搬家的
+     #17/#40/#54/#60/#62 打口径补丁，实测应用后 0 漂移。
+- 以后再接新宿主：把变体写进 `lib/host-variants.js`（需要时加 `HOST_VARIANT_FLAGS`），
+  别去改 `core.js` 的 PATCHES 字面量。
+- **上游（社区版）现状 2026-11-19**：`kingcharleslzy-ai/dsh-purge` HEAD `e519253` = 1.7.20，
+  `QUALIFIED_HOST_VERSIONS` 到 `0.2.2-rc.3` 为止；rc.4 明确 `unknown`，**rc.5 没有任何记录** ⇒
+  rc.4/rc.5 的适配是我们自己做的，不是跟上游。
 
 `patch-dryrun.mjs` 的读法：
 

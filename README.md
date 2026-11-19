@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness cybersecurity red-team tool (dsh-purge)</h1>
 
-<p align="center"><strong>Version 1.1.94</strong></p>
+<p align="center"><strong>Version 1.1.95</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness jailbreak: every model, swap prompts per model. Default prompt for 小码酱. Please star ⭐ If you build on this, see Attribution required.</em>
@@ -57,7 +57,7 @@ The author's personal channel: [t.me/LLM_PoJia](https://t.me/LLM_PoJia). Notes a
 
 ## What this is
 
-**dsh-purge** is a cybersecurity red-team plugin for the official [DeepSeek Harness](https://www.deepseek.com/harness/) already installed on your machine. **1.1.94** targets **DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3** (0.2.0 still works). Official **Web** (`dsh web`) and the official **desktop EXE** are both supported. Install and Apply them separately.
+**dsh-purge** is a cybersecurity red-team plugin for the official [DeepSeek Harness](https://www.deepseek.com/harness/) already installed on your machine. **1.1.95** targets **DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3 / 0.2.2-rc.4 / 0.2.2-rc.5** (0.2.0 still works). Official **Web** (`dsh web`) and the official **desktop EXE** are both supported. Install and Apply them separately.
 
 Harness does more than forward a prompt. It rewrites prompts, approval gates, sandbox policy, and session migration at runtime. Asking only “will the model answer” treats a host-layer block as a model refusal. This plugin separates those two layers on your own install, for controlled evaluation and for seeing which default policy is too tight.
 
@@ -131,13 +131,13 @@ This repo is [Apache License 2.0](./LICENSE). Forks and redistributions must kee
 
 ## Supported hosts
 
-**1.1.94 targets DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3** — the `dshTargets` list in `package.json`. 0.2.0 still works. Do not apply it to 0.1.x.
+**1.1.95 targets DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3 / 0.2.2-rc.4 / 0.2.2-rc.5** — the `dshTargets` list in `package.json`. 0.2.0 still works. Do not apply it to 0.1.x.
 
-- **dsh 0.2.1-rc.2** and **0.2.1-rc.5** (official desktop / official `dsh web`): use **1.1.94**. 1.1.81 fixed the `{{cwd}}` / `[cwd]` crash, patch #40 match, dropped `toolFilter`, host `dsh-tools` resolve, hostFs fd, desktop helper self-kill, `file:` archive update and Ctrl+Enter steer. 1.1.88 added the rc.5 anchors; 1.1.92 the `diagnose` / `reanchor` / `probe` / `backup` / `rollback` / `excludePresets` commands; 1.1.94 the Chinese refusal retry, patch groups and the inspector frame hardening.
-- **dsh 0.2.2-rc.1** and **0.2.2-rc.3**: use **1.1.93** or newer. The new-host anchors live in `lib/host-variants.js`; on isolated installs only `#88` (the self-marked follow-up of #87) misses on a clean tree, and one Apply turns it applied. Known gap: `#77` has no anchor in the minified 0.2.2 client and reports `na`.
+- **dsh 0.2.1-rc.2** and **0.2.1-rc.5** (official desktop / official `dsh web`): use **1.1.95**. 1.1.81 fixed the `{{cwd}}` / `[cwd]` crash, patch #40 match, dropped `toolFilter`, host `dsh-tools` resolve, hostFs fd, desktop helper self-kill, `file:` archive update and Ctrl+Enter steer. 1.1.88 added the rc.5 anchors; 1.1.92 the `diagnose` / `reanchor` / `probe` / `backup` / `rollback` / `excludePresets` commands; 1.1.94 the Chinese refusal retry, patch groups and the inspector frame hardening; 1.1.95 upgrades the refusal retry to four arms (fail-open, fresh-waterfall retry, seed arm, honest partial/empty outcomes) and adds 0.2.2-rc.4 / rc.5.
+- **dsh 0.2.2-rc.1** and **0.2.2-rc.3**: use **1.1.93** or newer (**1.1.95** for rc.4 / rc.5). The new-host anchors live in `lib/host-variants.js`; on isolated installs only `#88` (the self-marked follow-up of #87) misses on a clean tree, and one Apply turns it applied. **Gap closed**: `#77` gained a minified-client anchor in 1.1.95 (so rc.2+ applies it too), and `#62`'s repeated insertion (re-inserted on every Apply) is fixed in the same release.
 - **dsh 0.2.2-rc.2** is not declared (never measured). A host outside the list above only raises the non-blocking MISMATCH warning and Apply is not blocked: unmatched patches stay pending or skipped, nothing is rewritten blindly.
 - **dsh 0.2.0-rc.2**: use **1.1.40** or newer; this line also installs.
-- **dsh 0.1.7** (incl. rc.1 / rc.2): use **1.1.39** or older. Historic line — this fork publishes no tags and no releases, and the `main` tarball always ships 1.1.94.
+- **dsh 0.1.7** (incl. rc.1 / rc.2): use **1.1.39** or older. Historic line — this fork publishes no tags and no releases, and the `main` tarball always ships 1.1.95.
 
 ---
 
@@ -207,7 +207,7 @@ node node_modules/dsh-purge/scripts/ensure-profile-bundle.mjs
 - On the desktop client you can also click the button (`dsh://` deep link; it still downloads the same tarball).
 
 <p align="center">
-  <a href="dsh://plugin/install?id=dsh-purge&name=dsh-purge&version=1.1.94&repo=scially%2Fdsh-purge-plus&permissions=%E7%B3%BB%E7%BB%9F%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5%2C%E6%9C%AC%E6%9C%BA%E8%A1%A5%E4%B8%81%2C%E8%AE%BE%E7%BD%AE%E9%A1%B5&downloadUrl=https%3A%2F%2Fcodeload.github.com%2Fscially%2Fdsh-purge-plus%2Ftar.gz%2Frefs%2Fheads%2Fmain"><strong>Install in desktop client</strong></a>
+  <a href="dsh://plugin/install?id=dsh-purge&name=dsh-purge&version=1.1.95&repo=scially%2Fdsh-purge-plus&permissions=%E7%B3%BB%E7%BB%9F%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5%2C%E6%9C%AC%E6%9C%BA%E8%A1%A5%E4%B8%81%2C%E8%AE%BE%E7%BD%AE%E9%A1%B5&downloadUrl=https%3A%2F%2Fcodeload.github.com%2Fscially%2Fdsh-purge-plus%2Ftar.gz%2Frefs%2Fheads%2Fmain"><strong>Install in desktop client</strong></a>
 </p>
 
 **Step 3 — Restart the host.** Adding the plugin to a profile does **not** patch `@deepseek-ai` by itself. Fully quit and reopen the host you just installed into (Web: stop `dsh web` and start again; Desktop: quit the tray icon too, then open the exe).

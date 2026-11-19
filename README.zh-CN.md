@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge）</h1>
 
-<p align="center"><strong>Version 1.1.94</strong></p>
+<p align="center"><strong>Version 1.1.95</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -57,7 +57,7 @@
 
 ## 介绍
 
-**dsh-purge** 是装在本机官方 [DeepSeek Harness](https://www.deepseek.com/harness/) 上的网络安全红队评测插件。当前 **1.1.94** 已适配 **DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3**（0.2.0 仍可用）。官方 **Web**（`dsh web`）和官方 **桌面端**（EXE）都支持，两边分开装、分开应用。
+**dsh-purge** 是装在本机官方 [DeepSeek Harness](https://www.deepseek.com/harness/) 上的网络安全红队评测插件。当前 **1.1.95** 已适配 **DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3 / 0.2.2-rc.4 / 0.2.2-rc.5**（0.2.0 仍可用）。官方 **Web**（`dsh web`）和官方 **桌面端**（EXE）都支持，两边分开装、分开应用。
 
 Harness 不只是把问题交给模型。它还会在运行时改提示词、审批门、沙箱和会话格式。只看「模型答不答」，会把宿主拦截误当成模型拒绝。这个插件在你自己的安装里把这两层分开，用来做受控评测，也用来看默认策略该不该收紧。
 
@@ -133,13 +133,13 @@ Harness 不只是把问题交给模型。它还会在运行时改提示词、审
 
 ## 适配范围
 
-**1.1.94 已适配 DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3** —— 即 `package.json` 里的 `dshTargets`。0.2.0 仍可用。不要拿它去打 0.1.x。
+**1.1.95 已适配 DSH 0.2.1-rc.2 / 0.2.1-rc.5 / 0.2.2-rc.1 / 0.2.2-rc.3 / 0.2.2-rc.4 / 0.2.2-rc.5** —— 即 `package.json` 里的 `dshTargets`。0.2.0 仍可用。不要拿它去打 0.1.x。
 
-- **dsh 0.2.1-rc.2** 与 **0.2.1-rc.5**（官方桌面 / 官方 `dsh web`）：用 **1.1.94**。1.1.81 修掉了 `{{cwd}}` / `[cwd]` 整轮失败、补丁 #40 命中、`toolFilter` 废弃、`dsh-tools` 解析、hostFs fd、桌面换包自杀、`file:` 归档更新、Ctrl+Enter 插话；1.1.88 补上 rc.5 锚点；1.1.92 加入 `diagnose` / `reanchor` / `probe` / `backup` / `rollback` / `excludePresets`；1.1.94 加入中文拒绝重试、补丁组与 Inspector 超限帧加固。
-- **dsh 0.2.2-rc.1** 与 **0.2.2-rc.3**：用 **1.1.93** 及以上。新宿主的锚点变体集中在 `lib/host-variants.js`；隔离目录实测在干净树上只剩 `#88`（#87 的自标记续作）不命中，应用一次就是 applied。已知缺口：`#77` 在压缩过的 0.2.2 客户端里没有锚点，标成 `na`。
+- **dsh 0.2.1-rc.2** 与 **0.2.1-rc.5**（官方桌面 / 官方 `dsh web`）：用 **1.1.95**。1.1.81 修掉了 `{{cwd}}` / `[cwd]` 整轮失败、补丁 #40 命中、`toolFilter` 废弃、`dsh-tools` 解析、hostFs fd、桌面换包自杀、`file:` 归档更新、Ctrl+Enter 插话；1.1.88 补上 rc.5 锚点；1.1.92 加入 `diagnose` / `reanchor` / `probe` / `backup` / `rollback` / `excludePresets`；1.1.94 加入中文拒绝重试、补丁组与 Inspector 超限帧加固；1.1.95 把拒绝重试升级成四段（fail-open + 新 waterfall 重试 + seed 臂 + 半拒绝/空回复诚实结局）并适配 0.2.2-rc.4 / rc.5。
+- **dsh 0.2.2-rc.1** 与 **0.2.2-rc.3**：用 **1.1.93** 及以上（rc.4 / rc.5 用 **1.1.95**）。新宿主的锚点变体集中在 `lib/host-variants.js`；隔离目录实测在干净树上只剩 `#88`（#87 的自标记续作）不命中，应用一次就是 applied。**缺口已补**：`#77` 的压缩客户端锚点已在 1.1.95 加上，0.2.2-rc.2 起也能打上；`#62` 的重复注入（每次 apply 再插一遍）同版修掉。
 - **dsh 0.2.2-rc.2**：未声明（没实测过）。不在上面列表里的宿主只会出**不拦截**的 MISMATCH 告警，Apply 照常；对不上的补丁显示待应用或跳过，不会乱改文件。
 - **dsh 0.2.0-rc.2**：用 **1.1.40** 及以上；本页这档也能装。
-- **dsh 0.1.7**（含 rc.1 / rc.2）：用 **1.1.39** 及更早。属历史档：本 fork 不打标签、不发 Release，`main` 压缩包始终是 1.1.94。
+- **dsh 0.1.7**（含 rc.1 / rc.2）：用 **1.1.39** 及更早。属历史档：本 fork 不打标签、不发 Release，`main` 压缩包始终是 1.1.95。
 
 ---
 
@@ -209,7 +209,7 @@ node node_modules/dsh-purge/scripts/ensure-profile-bundle.mjs
 - 桌面客户端也可以点按钮（`dsh://` 唤起，下的仍是同一份压缩包）。
 
 <p align="center">
-  <a href="dsh://plugin/install?id=dsh-purge&name=dsh-purge&version=1.1.94&repo=scially%2Fdsh-purge-plus&permissions=%E7%B3%BB%E7%BB%9F%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5%2C%E6%9C%AC%E6%9C%BA%E8%A1%A5%E4%B8%81%2C%E8%AE%BE%E7%BD%AE%E9%A1%B5&downloadUrl=https%3A%2F%2Fcodeload.github.com%2Fscially%2Fdsh-purge-plus%2Ftar.gz%2Frefs%2Fheads%2Fmain"><strong>唤起客户端一键安装</strong></a>
+  <a href="dsh://plugin/install?id=dsh-purge&name=dsh-purge&version=1.1.95&repo=scially%2Fdsh-purge-plus&permissions=%E7%B3%BB%E7%BB%9F%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5%2C%E6%9C%AC%E6%9C%BA%E8%A1%A5%E4%B8%81%2C%E8%AE%BE%E7%BD%AE%E9%A1%B5&downloadUrl=https%3A%2F%2Fcodeload.github.com%2Fscially%2Fdsh-purge-plus%2Ftar.gz%2Frefs%2Fheads%2Fmain"><strong>唤起客户端一键安装</strong></a>
 </p>
 
 **第 3 步 —— 重启宿主。** 只把插件写进 profile **还不会**改 `@deepseek-ai`。完全退出再打开刚装的那个宿主（Web：停掉 `dsh web` 再开；桌面：托盘也要退出，再开 exe）。

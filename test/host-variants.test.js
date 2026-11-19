@@ -7,7 +7,7 @@ const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace
 const load = (rel) => import(pathToFileURL(path.join(repo, rel)).href);
 
 const core = await load("lib/core.js");
-const { HOST_VARIANTS, HOST_VARIANT_FILES, HOST_VARIANTS_SKIP } = await load("lib/host-variants.js");
+const { HOST_VARIANTS, HOST_VARIANT_FILES, HOST_VARIANT_FLAGS, HOST_VARIANTS_SKIP } = await load("lib/host-variants.js");
 
 const byId = new Map(core.ALL_PATCHES.map((p) => [String(p.id), p]));
 
@@ -36,6 +36,20 @@ test("host-variants: 搬家的文件键并进了补丁的 file 列表", () => {
 	}
 });
 
+test("host-variants: 状态口径补丁并进了 markers / 标志位", () => {
+	for (const [id, flags] of Object.entries(HOST_VARIANT_FLAGS)) {
+		const patch = byId.get(String(id));
+		assert.ok(patch, `补丁 #${id} 不存在`);
+		for (const m of flags.addMarkers ?? []) {
+			assert.ok((patch.markers ?? []).includes(m), `#${id} 没并进 marker ${m}`);
+		}
+		if (flags.markersAny === true) assert.equal(patch.markersAny, true, `#${id} markersAny 没生效`);
+		if (flags.softSettle === true) assert.equal(patch.softSettle, true, `#${id} softSettle 没生效`);
+	}
+	// 0.2.2 上 apply 成功后不再假报漂移的四条
+	assert.deepEqual(Object.keys(HOST_VARIANT_FLAGS).map(Number).sort((a, b) => a - b), [17, 40, 54, 60, 62]);
+});
+
 test("host-variants: 出厂 pattern 没被覆盖（只追加）", () => {
 	// #54 出厂 pattern 仍包含「句尾带空格」的老形式；新增的是句首空格形式。
 	const patch = byId.get("54");
@@ -44,13 +58,38 @@ test("host-variants: 出厂 pattern 没被覆盖（只追加）", () => {
 	assert.ok(all.some((p) => p.startsWith(" Do not call present")), "新的 #54 pattern 没进来");
 });
 
-test("host-variants: 0.2.2 上明确不适用的补丁有登记", () => {
-	assert.deepEqual(HOST_VARIANTS_SKIP["77"], ["0.2.2-rc.2", "0.2.2-rc.3"]);
+test("host-variants: #77 的压缩变体存在，且插入型变体带 insertProbe", () => {
+	// 0.2.2-rc.2 起会话客户端压成一行，出厂缩进式 pattern 一条都不中。
+	const patch = byId.get("77");
+	const minified = patch.replacements.find((r) => typeof r.pattern === "string" && r.pattern.startsWith("append(record){const event=record.event;"));
+	assert.ok(minified, "#77 缺压缩变体");
+	assert.ok(
+		minified.replace.includes("isRewindMarker"),
+		"#77 压缩变体必须用 typeof 守卫调用 #56 注入的 isRewindMarker",
+	);
+	// 插入型变体（replace 自带 pattern）必须用 insertProbe 收住，否则每次 apply 都再插一遍。
+	for (const rep of patch.replacements ?? []) {
+		if (typeof rep.pattern !== "string" || typeof rep.replace !== "string") continue;
+		if (!rep.replace.includes(rep.pattern)) continue;
+		assert.ok(rep.insertProbe, `自匹配 replacement 缺 insertProbe：${rep.pattern.slice(0, 50)}`);
+	}
+	const p62 = byId.get("62");
+	for (const rep of p62.replacements ?? []) {
+		if (typeof rep.pattern !== "string" || typeof rep.replace !== "string") continue;
+		if (!rep.replace.includes(rep.pattern)) continue;
+		assert.ok(rep.insertProbe, `#62 自匹配 replacement 缺 insertProbe：${rep.pattern.slice(0, 50)}`);
+	}
+});
+
+test("host-variants: 0.2.2 上不再需要 skip 名单", () => {
+	assert.deepEqual(HOST_VARIANTS_SKIP, {}, "#77 补上压缩变体后 skip 名单应为空");
 });
 
 test("package.json 声明的宿主版本包含实测过的 0.2.2 版本", async () => {
 	const pkg = JSON.parse(await (await import("node:fs/promises")).readFile(path.join(repo, "package.json"), "utf8"));
 	assert.ok(pkg.dshTargets.includes("0.2.2-rc.1"));
 	assert.ok(pkg.dshTargets.includes("0.2.2-rc.3"));
-	assert.ok(!pkg.dshTargets.includes("0.2.2-rc.2"), "rc.2 没实测，不要声明");
+	assert.ok(pkg.dshTargets.includes("0.2.2-rc.4"));
+	assert.ok(pkg.dshTargets.includes("0.2.2-rc.5"));
+	assert.ok(!pkg.dshTargets.includes("0.2.2-rc.2"), "rc.2 没单独实测，不要声明");
 });
