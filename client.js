@@ -3118,7 +3118,7 @@ body[data-ds-dark-theme] .rt-rep-step-no,.dshp-dock[data-theme="dusk"] .rt-rep-s
 .dshp-rewind:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary,currentColor)}
 .dshp-rewind:disabled{opacity:.4;cursor:default}
 .dshp-rewind svg{display:block}
-.dshp-rewind-menu{position:fixed;z-index:2147483000;box-sizing:border-box;min-width:220px;padding:4px;border:0;border-radius:12px;background:var(--dsw-specific-menu,#fff);color:var(--dsw-alias-label-primary,#1a1a1a);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent,0 8px 24px rgba(0,0,0,.16));transform:translateY(-100%)}
+.dshp-rewind-menu{position:fixed;z-index:1100;box-sizing:border-box;min-width:220px;padding:4px;border:0;border-radius:12px;background:var(--dsw-specific-menu,#fff);color:var(--dsw-alias-label-primary,#1a1a1a);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent,0 8px 24px rgba(0,0,0,.16));transform:translateY(-100%)}
 body[data-ds-dark-theme] .dshp-rewind-menu{background:var(--dsw-specific-menu,#32312d);color:var(--dsw-alias-label-primary,#e6e2db);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1,#3f3d38);box-shadow:var(--dsw-elevation-prominent,0 10px 28px rgba(0,0,0,.45))}
 .dshp-rewind-item{display:flex;flex-direction:column;gap:2px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:12px/1.3 var(--ds-font-sans,system-ui,sans-serif)}
 .dshp-rewind-item:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}
@@ -9290,6 +9290,11 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
 		   渲染树完全离开 composer，位置按 .standardControls 的矩形对齐。 */
 		const REWIND_HOST_ATTR = "data-dsh-purge-rewind-host";
 		const REWIND_RESERVE_PX = 64;
+		/* 按钮是挂在 body 上的 fixed 宿主，自己开一层；层级只要压过输入框自身
+		   （composerStack z-index:1、shell 覆盖层 20），其余交给宿主：宿主的下拉/菜单
+		   在 100/1100、弹窗在 1000，本插件面板在 10040+。写死成十几亿那档会把按钮
+		   顶在所有对话框上面，对话框一开就穿帮。 */
+		const REWIND_HOST_Z = 30;
 
 		function rewindControlsAnchor() {
 			if (typeof document === "undefined") return null;
@@ -9339,7 +9344,7 @@ body[data-ds-dark-theme] .rt-scope-testing,.dshp-dock[data-theme="dusk"] .rt-sco
 					el.setAttribute(REWIND_HOST_ATTR, "");
 					document.body.appendChild(el);
 				}
-				el.style.cssText = "position:fixed;z-index:2147482500;display:none;left:0;top:0;";
+				el.style.cssText = "position:fixed;z-index:" + REWIND_HOST_Z + ";display:none;left:0;top:0;";
 				setHost(el);
 				let padded = null;
 				let warned = false;
