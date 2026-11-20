@@ -51,7 +51,13 @@ test("patch-groups: 坏文件回落到默认值（不把整组误关）", () => 
 
 test("extra-patches: inspector 加固两条已并入补丁表", () => {
 	assert.equal(EXTRA_PATCHES.length, 2);
-	assert.equal(core.ALL_PATCHES.length, 88);
+	// 不再钉死总数：移植/新增补丁是常态，钉死数字只会让无关改动在这里误报。
+	// 真正要守的是「id 唯一」+「EXTRA_PATCHES 全都在 ALL_PATCHES 里」。
+	const ids = core.ALL_PATCHES.map((p) => String(p.id));
+	assert.equal(new Set(ids).size, ids.length, "补丁 id 必须唯一");
+	for (const extra of EXTRA_PATCHES) {
+		assert.ok(ids.includes(String(extra.id)), `#${extra.id} 不在 ALL_PATCHES 里`);
+	}
 	for (const id of [95, 96]) {
 		const patch = core.ALL_PATCHES.find((p) => String(p.id) === String(id));
 		assert.ok(patch, `#${id} 不在 ALL_PATCHES 里`);

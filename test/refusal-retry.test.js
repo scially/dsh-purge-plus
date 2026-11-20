@@ -279,6 +279,15 @@ test("refusal-retry: 重试流中途报错也 fail-open（还没吐过内容）"
 	fs.rmSync(home, { recursive: true, force: true });
 });
 
+test("refusal-retry: stripRetryMark 就地删键（cordis 的 next() 忽略实参，换对象没用）", () => {
+	const opts = { messages: [], [rr.RETRY_MARK]: true };
+	const out = rr.stripRetryMark(opts);
+	assert.equal(out, opts, "必须是同一个对象：next() 不认新对象");
+	assert.equal(rr.RETRY_MARK in out, false, "标记键要被删掉");
+	assert.deepEqual(rr.stripRetryMark({ a: 1 }), { a: 1 });
+	assert.equal(rr.stripRetryMark(null), null);
+});
+
 test("refusal-retry: 正常回答原样输出，不重试", async () => {
 	let calls = 0;
 	const factory = () => { calls += 1; return iterableOf([{ type: "text-delta", text: "正常内容" }, { type: "finish" }]); };

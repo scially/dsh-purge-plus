@@ -137,10 +137,76 @@ node scripts/exec-proof.mjs new              # 命令执行证据：要求目标
 | `/status` 逐补丁计数（bd3d487） | `lib/index.js` HTTP payload | 不再用分组级 `display_*` 当条数，避免与 `patch_status` 对不上、把 skipped/drifted 算进 ready |
 | 梁神候选路径枚举（0729f10 的小切片） | `lib/core.js` `listLiangshenPresetYmlFiles()` | `profiles/` 下所有 profile × 三种 node_modules 布局，不再硬编码 web/desktop |
 | 拒绝语料回归 | `test/refusal-corpus.test.js` | 49 正样本 / 12 负样本；`KNOWN_BROAD` 记录已知误伤，不接受以此收窄动词表 |
+| **ZIP 解压单读取器**（安全） | `lib/zip-extract.js` + 新 `lib/path-boundary.js` | 删掉 tar/unzip/python3/Expand-Archive 回退链（它会如实创建链接条目 ⇒ 可写到解压目录之外），补 `maxEntries` / `maxBytes`（`maxOutputLength` 截断解压炸弹）/ `verifyCrc` / 链接条目与链接祖先拒绝 / 重复路径拒绝 / EOCD 歧义拒绝 / `wx` 落盘 |
+
+> `fileOptional`（0.2.2 上「陈旧目标副本」不算漂移）是本 fork 的实现，对应社区 1.7.20 的同名机制
+> （他们用 `fileOptional` + `fileAllRequired`，见其 `test/partial-status.test.mjs`）。本 fork 不开
+> 整条补丁的 `softSettle`：那会把真漂移一起藏绿，`test/file-optional.test.js` 钉了反例。
 
 **明确不跟的（1.7.18→HEAD）**：patch 18 双布局（本 fork 出厂 pattern + `host-variants` 已等价）、
 patch 71 整套文件证据（本 fork 没有 `preset-presence`/`selfcheck` 消费者）、`verifyRemovedFromBackup`
 （本 fork #54 仍写 marker）、社区 #90 steering 那半（本 fork 没有对应补丁）、面板/评测脚手架/CI 全部跳过。
+
+---
+
+## 3.2 审计轮（1.1.96）：拿社区当镜子找自己的 bug
+
+做法（可复用）：**同名模块按 blob 级 diff**（社区工作树是 CRLF，比较一律用 `git cat-file blob`）、
+**补丁表按 `name` 对齐**（id 全错位：我们 #89=社区 #93、#90=社区 #94、社区 #90≈我们 #85+#86）、
+**把上游测试当规格跑**（`git show HEAD:test/<x>.test.mjs` 改 import 指向我们的 lib）。
+
+三条反馈线各一条 P1（都已修）：
+
+| 来源 | 问题 | 修法 |
+|---|---|---|
+| 同名模块对比 | `reapply.hostCleanEnoughToKeep()` 只排 `pending`，`unmatched` 被当成「宿主已清洗」→ 盖已应用戳、永不重打（上游 `b0ac3fa`） | 抽 `patchRowsKeepHostDirty()`，两种状态都算「还有活」 |
+| 新代码复核 | `filePatchOutcome()` 先看 markers、后看 forbid，而 `patchApplied()` 相反 → 半回滚态显示 applied | forbid 提前；`test/status-forbid.test.js` 钉住 |
+| 补丁表对比 | #17 在 0.2.2 上漏 `requirePresent`（编辑/删除仍要「先读」）、#92/#93 每次 Apply 重复插入 | 补 `requirePresent` 变体 + marker；两条加 `skipIfMarked`；新增全表幂等契约测试 |
+
+另外这轮自查（Lead）修掉：ZIP 解压回退链（符号链接逃逸/无上限）、`fileOptional` 取代整条 `softSettle`
+（避免把真漂移藏绿）、`RETRY_MARK` 就地删除（cordis `next()` 忽略实参，实测）、`restartArgv` 识别
+`--profile`/裸 profile、探针过期清理。
+
+**下次接新宿主/新上游时**：先跑这三条线，别只看功能盘点。已知未跟项（递归删除 no-follow、
+原子写 rename 退避、community #89 ask-user 等待上限）都在 1.1.96 的 release-notes 里写明了理由。
+
+---
+
+## 3.3 补齐轮（1.1.97）：把 3.2 列出的差距落地
+
+| 差距 | 落地 | 备注 |
+|---|---|---|
+| 技能库（23 个） | `skills/redteam/` 从旧 tag 取回 + `package.json#files` 收进 | 合主线时丢过；`unauth-exploit` 并入社区的「复核命令执行」节（配合 `scripts/exec-proof.mjs`） |
+| 补丁表三条 | 我们 **#97**≈社区 #89（ask_user 等待上限）、**#98**≈社区 #91（cookie 名忽略端口）、**#99**≈社区 #92（host 请求头上限） | 新增文件键 `client-connection` / `tool-ask-user`；#97 带迁移条 + `forbid` |
+| `remove-tree.js` / `atomic-files.js` | `lib/remove-tree.js`（no-follow + 有界重试）、`lib/atomic-files.js`（原子写 + EPERM 退避） | 接进 `skills.js` 6 处递归删、`clearStaleExtractedApps`、`writeHostFileAtomic` |
+| `boost.js` / `tuning.js` | `lib/boost.js`（段位 -50000）、`lib/tuning.js`（`tuning.json`） | **默认 `inject: "head"`**（= 社区默认 = 本 fork 移植前观感）；段名 `dshpg-*` 躲避宿主对 `dsh-purge*` 的带头提权 |
+| 更新通道完整性 | `lib/update-integrity.js` + `lib/signed-sidecars.mjs`，闸门在 `overlayFromZip()` 的「写完 zip、还没解包」之间 | 真验签缺钉死公钥 → 明确 `unsupported`，不假装 |
+| 自检证据链 | `lib/patch-state.mjs` + `lib/selfcheck.js` + `dsh-purge selfcheck [--json]` | 五分类；`missing_file` 归「不适用」；unknown/broken 非零退出 |
+
+**仍然不跟（子系统级）**：插件市场 / 安装器 / 多实例登记、`locale/` i18n、`next-host`（dsh-go/NEXT）、
+其余 `update-*`（镜像 / SOCKS / 系统代理 / 密钥）。这些要单独排期，别按「一条补丁」的粒度混进日常移植。
+
+---
+
+## 3.4 清扫轮（1.1.98）：把两个加固模块铺满 + 段序真机取证
+
+**安全清扫**（`_scratch/fixall/safety.md` §8 的候选清单，本轮全部落地）：
+
+| 组 | 落点 |
+|---|---|
+| 原子写退避 | `lib/core.js` 四个 helper（影响面最大：所有宿主/状态文件写入）借 `atomic-files` 抽出的 `renameSyncWithRetry`/`renameWithRetry`，仍走 `hostFs`；`snapshot`/`tuning`/`drill-grant`/`hooks-deny`/`index` 日志轮转 |
+| no-follow 删除 | `extract-asar`（`discardDir`/`restoreExtractedDir`）、`desktop`（删链接）、`preset-default`、`snapshot`、`update`、`uninstall`、`core.js`（解包半成品 `side.next`） |
+| 换目录/换 asar 退避 | `extract-asar` 的 `renameAsarAside`/`restoreFromPrev`/`commitExtractedDir`/`restoreExtractedDir` |
+| 自包含副本 | `restart-desktop.js` / `uninstall-restart.js` / `bin/dsh-purge.js` 内联一份（**零 import**，三份逐字节一致）——包被卸载后仍要能跑，所以不能 import 模块 |
+
+**段序真机取证**（新增只读脚本 `scripts/verify-section-order.mjs`）：
+
+- 宿主侧那条提权规则（我们自己的补丁装进 `dsh-system-prompt` 的 `[...dshPurgeSections, ...dshPurgeRest]`）
+  在 **0.2.1-rc.5** 上生效、在 0.2.2 上不重排；它把**非空 `dsh-purge*` 段整体提前**。
+- 结论：段名**必须**按「宿主会不会动它」来选 —— 要留在原位的段（锚点、尾部注入、cap、boost）一律
+  `dshpg-` 前缀；要钉在最前的注入正文段才叫 `dsh-purge`。改名后两个宿主版本上锚点都真在最后。
+- 以后接新宿主：先跑 `node scripts/verify-section-order.mjs --ai-base <aiBase> --strict-host`，
+  再谈适配 —— 段序不对时「注入贴尾/锚点 recency」这类设计会静默失效。
 
 **没跟的**：社区版把设置搬成了侧栏整页、设置页共享、回退按钮默认隐藏——那是面板架构差异，
 本 fork 仍是「设置页 section + dock」，要跟得单独重排面板。dsh-go / NEXT 换包、签名 sidecar 校验与 web 场景无关。

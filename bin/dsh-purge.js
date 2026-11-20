@@ -3,6 +3,7 @@
 import * as core from "../lib/core.js";
 import * as rules from "../lib/rules.js";
 import * as reapply from "../lib/reapply.js";
+import * as selfcheck from "../lib/selfcheck.js";
 
 const args = process.argv.slice(2);
 
@@ -58,6 +59,7 @@ async function main() {
 
 维护子命令:
   dsh-purge diagnose [--detail] [--host <aiBase>]        锚点漂移诊断（只读）
+  dsh-purge selfcheck [--json]                           逐条补丁证据链自检（只读，退出码非零=有异常）
   dsh-purge reanchor <id> --index <n> --text "<片段>"     写一条本地重锚（不改源码）
   dsh-purge reanchor <id> --clear [--index <n>]          清除重锚
   dsh-purge probe --new | --check | --end                运行时探针（证明注入到达模型）
@@ -158,8 +160,9 @@ async function main() {
     /* 命令行卸载没有「重启后助手」这一步：插件目录不会自己消失，得在这里删。
        （界面卸载是把这一步交给独立助手，等端口释放后再删。） */
     const fs = await import("node:fs");
+    const path = await import("node:path");
     for (const dir of result.cleanup || []) {
-      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 120 }); }
+      try { removeTreeNoFollowSync(dir, { fs, path }); }
       catch (e) { console.log(`  ⚠ 未能删除 ${dir}: ${e && e.message ? e.message : e}`); }
     }
     console.log("");
@@ -206,6 +209,14 @@ async function runSubcommand(sub, rest) {
   switch (sub) {
     case "diagnose":
       return out(await maintenance.diagnose({ aiBase: host, dshHome, detail: args.includes("--detail") }));
+    case "selfcheck": {
+      const state = await core.gatherState();
+      const report = selfcheck.selfcheckFromState(state, { patches: core.ALL_PATCHES });
+      if (args.includes("--json")) console.log(JSON.stringify(report, null, 2));
+      else console.log(selfcheck.renderSelfcheck(report));
+      process.exitCode = report.exitCode;
+      return;
+    }
     case "reanchor": {
       const id = rest.find((a) => !String(a).startsWith("--")) || flag("id");
       const indexRaw = flag("index", "0");
@@ -262,3 +273,69 @@ async function runSubcommand(sub, rest) {
       process.exitCode = 2;
   }
 }
+
+// BEGIN standalone no-follow cleanup (checked against lib/remove-tree.js)
+/* 自包含 no-follow 删除：**故意不复用 lib/remove-tree.js**。
+   这三份副本跑在「插件包已经/正在被卸载」的时刻，那时 lib/ 已经不在磁盘上，
+   所以整段只允许依赖调用方作用域里的 fs / path（都是 node: 内置模块）。
+   语义：lstat 优先 → 链接只 unlink 链接本身、绝不跟进；目录逐层非递归 rmdir；
+        ENOENT 幂等；EBUSY/EPERM/ENOTEMPTY/EMFILE/ENFILE 有界退避（8 次 × 120ms 起）；
+        Windows 只读条目先补写位再删；拒删文件系统根；空目标直接返回。 */
+function removeTreeNoFollowSync(target, options = {}) {
+  const io = options.fs || fs;
+  const nodePath = options.path || path;
+  const raw = String(target == null ? "" : target).trim();
+  if (!raw) return;
+  const root = nodePath.resolve(raw);
+  if (root === nodePath.parse(root).root) throw new Error("Refusing to remove a filesystem root");
+  const maxRetries = options.maxRetries ?? 8;
+  const retryDelay = options.retryDelay ?? 120;
+  const retryable = new Set(["EBUSY", "EMFILE", "ENFILE", "ENOTEMPTY", "EPERM"]);
+  const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  // Windows 只读条目删不掉：先补上写位。chmod 失败不在这里报错，交给后面的 unlink/rmdir。
+  const clearReadOnly = (file, stat) => {
+    try {
+      if (typeof io.chmodSync !== "function") return;
+      if ((stat.mode & 0o200) === 0) io.chmodSync(file, stat.mode | 0o200);
+    } catch { /* ignore */ }
+  };
+  const walk = (file) => {
+    let stat = null;
+    try {
+      stat = io.lstatSync(file);
+    } catch (error) {
+      if (error && error.code === "ENOENT") return; // 已经没了 = 幂等
+      throw error;
+    }
+    // lstat 必须排在 isDirectory 之前：删除目标绝不 stat/realpath，否则会跟进 junction。
+    try {
+      if (stat.isSymbolicLink()) {
+        io.unlinkSync(file); // 只删链接本身，目标一个字节都不动
+        return;
+      }
+      if (stat.isDirectory()) {
+        clearReadOnly(file, stat);
+        for (const name of io.readdirSync(file)) walk(nodePath.join(file, name));
+        io.rmdirSync(file); // 非递归：不借助原生递归 rm
+      } else {
+        clearReadOnly(file, stat);
+        io.unlinkSync(file);
+      }
+    } catch (error) {
+      if (!error || error.code !== "ENOENT") throw error;
+    }
+  };
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      walk(root);
+      return;
+    } catch (error) {
+      if (error && error.code === "ENOENT") return;
+      // 有界退避：每次重试都重新 lstat 剩余条目（含根），不缓存任何 stat 结果。
+      const code = error && error.code;
+      if (attempt >= maxRetries || !retryable.has(code)) throw error;
+      sleepSync(retryDelay * (attempt + 1));
+    }
+  }
+}
+// END standalone no-follow cleanup
