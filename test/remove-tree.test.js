@@ -121,11 +121,19 @@ test("remove-tree: 只读条目先补写位再删（注入 io 记录调用顺序
 
   assert.equal(fs.existsSync(root), false, "没有 rmdirSync 的 fs 也必须能删干净");
   const chmod = calls.find((c) => c[0] === "chmod");
-  assert.ok(chmod, "只读条目必须先补写位");
-  assert.equal(chmod[2] & 0o200, 0o200, "补的写位要落在 chmod 上");
   const unlink = calls.find((c) => c[0] === "unlink");
-  assert.equal(unlink[2], true, "unlink 时条目已经是可写的");
-  assert.ok(calls.indexOf(chmod) < calls.indexOf(unlink), "顺序必须是先 chmod 再 unlink");
+  assert.ok(unlink, "只读条目必须被删掉");
+  /* 平台差异（CI 在 ubuntu/macos 上踩过）：Windows 上删只读文件要先补写位，
+     POSIX 只要求父目录可写 —— 实现里 isReadOnly() 也只在 win32 返回真。 */
+  if (process.platform === "win32") {
+    assert.ok(chmod, "Windows：只读条目必须先补写位");
+    assert.equal(chmod[2] & 0o200, 0o200, "补的写位要落在 chmod 上");
+    assert.equal(unlink[2], true, "unlink 时条目已经是可写的");
+    assert.ok(calls.indexOf(chmod) < calls.indexOf(unlink), "顺序必须是先 chmod 再 unlink");
+  } else {
+    assert.equal(chmod, undefined, "POSIX：不该去补文件写位（只看父目录写位）");
+    assert.equal(unlink[2], false, "POSIX：unlink 时条目仍是只读位（不需要补）");
+  }
   cleanup(root);
 });
 

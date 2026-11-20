@@ -252,7 +252,10 @@ test("asar-safe-fs: destDir 里有被打开的条目 → commitExtractedDir 退�
   cleanup(root);
 });
 
-test("asar-safe-fs: 句柄一直不释放 → commitExtractedDir 抛 EPERM 且两边原样在位", () => {
+test("asar-safe-fs: 目标写不进去 → commitExtractedDir 抛错且两边原样在位", () => {
+  if (process.platform !== "win32" && typeof process.getuid === "function" && process.getuid() === 0) {
+    return; // root 会绕过 POSIX 权限检查，构造不出失败现场
+  }
   const root = tmpDir("asar-commit-stuck");
   const destDir = path.join(root, "app");
   mkdirp(destDir, "sub");
@@ -261,13 +264,18 @@ test("asar-safe-fs: 句柄一直不释放 → commitExtractedDir 抛 EPERM 且�
   mkdirp(nextDir);
   fs.writeFileSync(path.join(nextDir, "new.txt"), "new");
 
-  const fd = fs.openSync(path.join(destDir, "sub", "old.txt"), "r");
+  /* 平台差异（CI 在 ubuntu/macos 上踩过）：POSIX 允许 rename 覆盖/移动含已打开文件的目录，
+     所以「持读句柄 → EPERM」只有 Windows 成立；POSIX 改用父目录不可写 → EACCES。 */
+  const isWindows = process.platform === "win32";
+  const fd = isWindows ? fs.openSync(path.join(destDir, "sub", "old.txt"), "r") : null;
+  if (!isWindows) fs.chmodSync(root, 0o500);
   const renameSpy = spyFs("renameSync");
   try {
-    assert.throws(() => commitExtractedDir(destDir, nextDir), (error) => error.code === "EPERM");
+    assert.throws(() => commitExtractedDir(destDir, nextDir), (error) => error.code === "EPERM" || error.code === "EACCES");
   } finally {
     renameSpy.restore();
-    fs.closeSync(fd);
+    if (fd !== null) fs.closeSync(fd);
+    if (!isWindows) fs.chmodSync(root, 0o700);
   }
 
   assert.equal(renameSpy.calls.length, 5, "占用类错误最多重试 5 次");
