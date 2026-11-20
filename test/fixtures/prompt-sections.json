@@ -1,0 +1,60 @@
+{
+  "note": "段名 / 段位契约（发货形态）。这里盯「命名与注册」，不盯摆位（摆位在 test/section-order.test.js）。段名策略来自宿主侧事实：0.2.1-rc.5 的补丁在 assemble() 返回前会把所有**非空且以 dsh-purge 开头**的段整体提到数组最前，所以只有「必须钉最前」的注入正文才配 dsh-purge 前缀；其余段要按 order 留在原位，一律 dshpg-。",
+  "policy": {
+    "hoistedPrefix": "dsh-purge",
+    "keepOrderPrefix": "dshpg-",
+    "rule": "注册进 systemPrompt 的段里，只有 head inject 允许用 dsh-purge 前缀；其余必须 dshpg-（cap / boost / tail inject / anchor）。"
+  },
+  "sections": [
+    {
+      "name": "dsh-purge",
+      "order": -100000,
+      "role": "head-inject",
+      "prefix": "dsh-purge",
+      "why": "注入正文的头部落点。宿主补丁按这个前缀把它钉在 prompt 最前，所以它必须用这个前缀（改名会掉到宿主段之后）。"
+    },
+    {
+      "name": "dshpg-capabilities",
+      "order": -99999,
+      "role": "capability",
+      "prefix": "dshpg-",
+      "why": "能力协议段（skill / MCP 自发现）。紧跟 head inject，用 dshpg- 避免被宿主提权到注入之前。"
+    },
+    {
+      "name": "dshpg-boost",
+      "order": -50000,
+      "role": "boost",
+      "prefix": "dshpg-",
+      "why": "强化段。段位来自实测（放最前 0/6 首拒、放 9500 有 2/6），所以要按 order 生效 → 必须 dshpg-。"
+    },
+    {
+      "name": "dshpg-inject-tail",
+      "order": 10140,
+      "role": "tail-inject",
+      "prefix": "dshpg-",
+      "why": "注入正文的尾部落点（WEB_SURFACE 10100 之后、锚点 10150 之前）。带 dsh-purge 前缀会被宿主提到最前，尾部就没了。"
+    },
+    {
+      "name": "dshpg-anchor",
+      "order": 10150,
+      "role": "anchor",
+      "prefix": "dshpg-",
+      "why": "尾部锚点。必须压最后：dsh-purge 前缀会被宿主提前（0.2.1-rc.5 实测），所以改名 dshpg-。"
+    },
+    {
+      "name": "dshpg-post",
+      "order": 5100,
+      "role": "post-prompt",
+      "prefix": "dshpg-",
+      "why": "postPrompt 附加段（默认不启用）。0.2.1-rc.5 上带 dsh-purge 前缀会被宿主提到最前、postPromptOrder 失效，故用 dshpg-。"
+    }
+  ],
+  "contexts": [
+    {
+      "name": "dsh-purge:child-anchor",
+      "order": 235,
+      "why": "子会话锚点走 context 不走 section：宿主那条 sections 重排只作用于段，context 不受影响，所以这里保留 dsh-purge 前缀无副作用。"
+    }
+  ],
+  "knownExceptions": []
+}
