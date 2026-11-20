@@ -13,20 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify:
+    if: github.repository == 'YuJunZhiXue/dsh-purge'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      # 与 CI / 本地 `npm run verify` 同一条闸：编译检查、构建一致性、打包产物、单元测试。
+      - uses: ./.github/actions/verify
+
   release:
+    needs: verify
     if: github.repository == 'YuJunZhiXue/dsh-purge'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Syntax-check plugin entry
-        run: |
-          node --check lib/index.js
-          node --check lib/core.js
-          node --check lib/reapply.js
-          node --input-type=module -e "import './lib/index.js'"
 
       - name: Publish GitHub Release
         env:

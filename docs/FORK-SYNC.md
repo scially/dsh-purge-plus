@@ -24,6 +24,7 @@
 | `5f98386` | `scripts/patch-dryrun.mjs`（只读诊断）、`build:client` 串上 `patch-settings-ui.mjs` | 诊断工具上游没有；`build:client` 必须重贴设置块，否则每次重建 `client.js` 都会丢 |
 | `bf5ec0d` | `.gitattributes` 统一 LF | 跨平台一致 |
 | 本地测试 | `test/net-scope.test.js`、`test/settings-section.test.js`、`test/restart-manual.test.js` + `package.json` 的 `test` 脚本 | 上游 1.1.87 把**整个 `test/` 目录和 test 脚本都删了**（理由：审计清理、删死代码）。本地这几个测试覆盖的是本地独有功能与已修的 bug，保留 |
+| 本地 CI | `.github/workflows/ci.yml`、`.github/actions/verify/action.yml`、`.github/host-baseline.json`、`scripts/ci-verify.mjs`、`scripts/ci-host-anchor.mjs`、`package.json` 的 `check*` / `verify` 脚本 | 上游不留 CI，本 fork 的测试得有人跑：语法/模块图/构建一致性/打包产物 + 单元测试（矩阵 ubuntu/windows/macos），另有一条手动的真宿主锚点巡检。见 `docs/CI.md` |
 
 **已下线的本地改动（2026-11-03，1.1.91）：**
 
@@ -98,6 +99,9 @@ node scripts/patch-dryrun.mjs                 # 只读：逐 pattern 在宿主�
 node scripts/build-client.mjs                 # 重嵌红队面板片段（改过 lib/redteam/client.js 时）
 node scripts/patch-settings-ui.mjs            # 重贴设置页注册块（幂等）
 ```
+
+CI 上跑的是同一套东西，另加打包产物断言与真宿主锚点巡检 —— 详见 `docs/CI.md`；
+本地一条命令等价：`npm run verify`（= `npm run check` + `node --test`）。
 
 ### 3.1 维护命令（1.1.92）
 

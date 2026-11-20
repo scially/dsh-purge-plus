@@ -1,0 +1,92 @@
+name: CI
+
+# 每个分支的 push（含本 fork 的 main 与 PR）都跑；workflow_dispatch 可以顺手做真宿主锚点巡检。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      host_versions:
+        description: 真宿主锚点巡检的宿主版本（逗号分隔；留空 = package.json 里最新的 dshTargets）
+        required: false
+        default: ""
+      host_apply:
+        description: 巡检时多跑一轮 apply→复检→再 apply（往临时宿主编译树写盘，只对临时拷贝有意义）
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify · ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: "22" }
+          - { os: ubuntu-latest, node: "24" }
+          - { os: ubuntu-latest, node: "26" }
+          - { os: windows-latest, node: "26" }
+          - { os: macos-latest, node: "26" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: ./.github/actions/verify
+
+  host-anchor:
+    name: host anchor
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: 装真宿主 + 锚点巡检
+        env:
+          HOST_VERSIONS: ${{ inputs.host_versions }}
+          HOST_APPLY: ${{ inputs.host_apply }}
+        run: |
+          set -euo pipefail
+          case "${HOST_VERSIONS:-}" in
+            *,*) if [ "$HOST_APPLY" = "true" ]; then
+                   echo "host_apply 只支持单版本：host_versions 里给了多个（$HOST_VERSIONS）"
+                   exit 1
+                 fi ;;
+          esac
+          args=(--report .ci-out/host-anchor.json --summary .ci-out/host-anchor.md)
+          if [ -n "$HOST_VERSIONS" ]; then
+            args+=(--versions "$HOST_VERSIONS")
+          fi
+          if [ "$HOST_APPLY" = "true" ]; then
+            args+=(--apply)
+          fi
+          mkdir -p .ci-out
+          node scripts/ci-host-anchor.mjs "${args[@]}"
+
+      - name: 写进 job summary
+        if: always()
+        run: cat .ci-out/host-anchor.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: host-anchor
+          path: .ci-out/
+          if-no-files-found: ignore

@@ -37,6 +37,12 @@
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs && node scripts/patch-settings-ui.mjs",
     "postinstall": "node scripts/ensure-profile-bundle.mjs",
+    "check": "node scripts/ci-verify.mjs",
+    "check:syntax": "node scripts/ci-verify.mjs syntax",
+    "check:build": "node scripts/ci-verify.mjs build",
+    "check:pack": "node scripts/ci-verify.mjs pack",
+    "check:host": "node scripts/ci-host-anchor.mjs",
+    "verify": "node scripts/ci-verify.mjs && node --test",
     "test": "node --test"
   },
   "license": "Apache-2.0",

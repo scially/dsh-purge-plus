@@ -1,0 +1,21 @@
+name: Verify plugin
+description: 本地 npm run verify 的同一条闸：编译检查、模块图、构建一致性、打包产物、单元测试
+
+runs:
+  using: composite
+  steps:
+    - name: 环境
+      shell: bash
+      run: |
+        set -euo pipefail
+        node --version
+        npm --version
+        git --version
+
+    - name: 编译 / 构建一致性 / 打包产物
+      shell: bash
+      run: npm run check
+
+    - name: 单元测试
+      shell: bash
+      run: npm test

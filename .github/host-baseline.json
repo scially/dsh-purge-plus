@@ -1,0 +1,15 @@
+{
+  "_note": "真宿主锚点巡检的基线，由 scripts/ci-host-anchor.mjs 读取。matched = pending + applied；低于 minMatched、或出现 allowedDriftedIds 之外的失配补丁就判红。数值为 2026-11-20 在干净宿主上实测，留了一点余量。",
+  "0.2.2-rc.5": {
+    "minMatched": 70,
+    "maxDrifted": 1,
+    "allowedDriftedIds": ["88"],
+    "measured": "2026-11-20 实测 matched 72（pending 67 / applied 5 / na 13 / missing_file 1 / skipped 1 / drifted 1 = #88）；--apply 一轮写 96 处后 0 pending 0 drifted，二轮 0 写盘"
+  },
+  "0.2.1-rc.5": {
+    "minMatched": 70,
+    "maxDrifted": 1,
+    "allowedDriftedIds": ["88"],
+    "measured": "2026-11-20 实测 matched 72（pending 68 / applied 4 / na 13 / missing_file 1 / skipped 1 / drifted 1 = #88）"
+  }
+}
