@@ -1,3 +1,30 @@
+# 1.1.99
+
+## 中文
+
+- 版本 **1.1.99**：**注入这块补齐上游 + CI 跨平台修复**。上一轮对比的结论是「注入正文两侧逐字节相同，但上游有整套注入契约测试，我们空白」，这一轮把测试补齐；顺带修掉两条真机问题。
+- **CI 在 ubuntu / macos 上红了，原因是我们三条用例写死了 Windows 语义**（本轮已修）：
+  - POSIX **允许** rename 覆盖已打开的文件，所以「持一个读句柄 → rename 一定失败」只有 Windows 成立 → 失败现场改成按平台构造（Windows 持句柄 / POSIX 父目录不可写 EACCES，root 下跳过），跨平台断言（内容已更新、无临时文件）保留。涉及 `test/atomic-write-core.test.js`、`test/asar-safe-fs.test.js`。
+  - 只读文件的删除只有 Windows 需要先补写位（实现里 `isReadOnly()` 也只在 win32 为真）→ `test/remove-tree.test.js` 的断言按平台分开。
+  - 现在 Windows `node --test` 与 Linux `node --test` 都绿；GitHub Actions 五个矩阵任务全过。
+- **注入契约测试与夹具**（对齐上游 `inject-contract` / `inject-split` / `prompt-preservation` / `prompt-sections` 那套，我们此前是空白）：从**发货的封印正文**解出 37 条「必须在场」条款做成夹具，断言包装与运行时闭合、条款一条不少、长度窗口、无未解析占位；拆段（head/tail/both）后条款不丢且逐字节可还原；宿主侧补丁（#1/#2/#40/#74）产物做纯文本模拟验证注入存活；段名/段位契约与前缀策略固化成表。
+- **角色化 capability 协议**（对齐上游）：把红队**指挥**与红队**执行者**两份协议逐字搬进来，分流顺序与上游一致（`enabled:false` → 空串；执行者 → 执行者稿；红队 → 指挥稿；否则通用）。装配侧（identity）与注册侧（index）都用「红队 **且** 确实在子会话」判定（`isSubagentContext`，与 `role-section.js` 同口径）；判不出来走通用 —— 宁可给子会话通用稿，也不把「不要重新派活」的执行者稿发给指挥。
+- **顺带修掉的两处**：
+  - `dsh-purge:post` → **`dshpg-post`**：宿主侧提权规则会把非空 `dsh-purge*` 段整体提前，0.2.1-rc.5 上 `postPromptOrder`（默认 5100）失效；改名后段位恢复（与锚点 / cap / boost / 尾段同一条策略）。
+  - `lib/index.js` 的 capability 注册段以前硬编码 `redteamChild: false`，现在与装配侧同口径（宿主若绕过 rewrite 直接渲染注册段，也能拿到角色正确的协议）。
+- **一条「看着不对但其实是有意的」**：补丁 `#2` 把 complete baseline 改回「可能有用的参考」措辞，方向与 `#1` 的硬化相反 —— 但它与上游逐条一致（上一轮 C 线核对过），故保持不动，并用测试把当前终态钉住：哪天有人改硬化，这条会先红。
+- 验证：Windows `node --test` **265/265**；Linux（WSL，node 24）**265 条 / 262 pass / 3 skipped / 0 fail**（3 条是 Windows 文件占用用例主动 skip）；`scripts/ci-verify.mjs` 四项通过；`scripts/verify-section-order.mjs --strict-host` 在两个宿主版本上都 exit 0；宿主补丁状态不变（73 applied / 1 pending 的 `#97` / 0 drifted）。
+
+## English
+
+- **1.1.99**: injection-side catch-up plus a cross-platform CI fix.
+- **CI was red on ubuntu/macos because three cases hard-coded Windows semantics** (fixed here): POSIX allows renaming over an open file, so "hold a read handle → rename must fail" only holds on Windows (the failure fixture is now built per platform: a held handle on Windows, a read-only parent directory → EACCES on POSIX, skipped when running as root), and the read-only-attribute delete only needs the write bit on Windows (`isReadOnly()` is win32-only as well). All five GitHub Actions matrix jobs are green now.
+- **Injection contract tests and fixtures** (the upstream `inject-contract` / `inject-split` / `prompt-preservation` / `prompt-sections` suite we were missing): 37 must-be-present clauses extracted from the **shipped sealed prompt**, assertions for the envelope and runtime closing tag, clause completeness, length window, unresolved placeholders, clause preservation across head/tail/both splits with byte-exact reconstruction, injection survival through the #1/#2/#40/#74 patch products, and a section-name/order/prefix policy table.
+- **Role-aware capability protocols**: the redteam **lead** and **executor** protocols are ported verbatim with upstream's dispatch order; both the assembly side (identity) and the registration side (index) now decide "in a subagent session" via `isSubagentContext` — falling back to the generic protocol when it cannot be established (better a generic brief for a child than the "do not re-delegate" executor text for a lead).
+- **Two real fixes found by the new tests**: `dsh-purge:post` → `dshpg-post` (the host-side hoisting rule moves every non-empty `dsh-purge*` section to the front, voiding `postPromptOrder` on 0.2.1-rc.5), and the capability registration section no longer hard-codes `redteamChild: false`.
+- **One deliberate non-fix**: patch `#2` softens the complete-preset baseline (opposite direction from `#1`) — it matches upstream line for line, so it stays, with a test pinning the current end state.
+- Verification: 265/265 on Windows, 265 tests / 262 pass / 3 skipped / 0 fail on Linux; `ci-verify` fully green; the section-order script exits 0 on both host versions; patch state unchanged.
+
 # 1.1.98
 
 ## 中文
